@@ -1,3 +1,8 @@
+# SonarCloud: use EITHER this workflow (CI-based scan) OR SonarCloud "Automatic Analysis" — not both.
+# If you see: "You are running CI analysis while Automatic Analysis is enabled"
+# → SonarCloud → Project → Administration → Analysis Method → disable Automatic Analysis.
+# See: https://docs.sonarcloud.io/advanced-setup/ci-based-analysis/
+
 name: SonarCloud Analysis
 
 on:
