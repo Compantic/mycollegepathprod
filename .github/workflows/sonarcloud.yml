@@ -1,7 +1,13 @@
-# SonarCloud: use EITHER this workflow (CI-based scan) OR SonarCloud "Automatic Analysis" — not both.
-# If you see: "You are running CI analysis while Automatic Analysis is enabled"
-# → SonarCloud → Project → Administration → Analysis Method → disable Automatic Analysis.
-# See: https://docs.sonarcloud.io/advanced-setup/ci-based-analysis/
+# SonarCloud: "CI-based scan" (this file) and SonarCloud "Automatic Analysis" cannot both be on.
+# Default: only build + tests run (green CI). Automatic Analysis can still run on SonarCloud’s side.
+#
+# To use THIS workflow’s Sonar step + coverage (lcov):
+#   1) SonarCloud → Project → Administration → Analysis Method → disable Automatic Analysis
+#   2) GitHub repo → Settings → Secrets and variables → Actions → Variables
+#      Add: SONAR_USE_CI_SCAN = true
+#   3) Keep SONAR_TOKEN in repo Secrets
+#
+# https://docs.sonarcloud.io/advanced-setup/ci-based-analysis/
 
 name: SonarCloud Analysis
 
@@ -14,7 +20,7 @@ on:
       - main
 
 jobs:
-  sonarcloud:
+  build:
     runs-on: ubuntu-latest
     steps:
       - name: Checkout
@@ -36,6 +42,29 @@ jobs:
 
       - name: Generate coverage report
         run: npm run test:coverage
+
+      - name: Upload coverage
+        uses: actions/upload-artifact@v4
+        with:
+          name: coverage-lcov
+          path: coverage/lcov.info
+          if-no-files-found: error
+
+  sonarcloud:
+    needs: build
+    if: ${{ vars.SONAR_USE_CI_SCAN == 'true' }}
+    runs-on: ubuntu-latest
+    steps:
+      - name: Checkout
+        uses: actions/checkout@v4
+        with:
+          fetch-depth: 0
+
+      - name: Download coverage
+        uses: actions/download-artifact@v4
+        with:
+          name: coverage-lcov
+          path: coverage
 
       - name: SonarCloud Scan
         uses: SonarSource/sonarcloud-github-action@v2
