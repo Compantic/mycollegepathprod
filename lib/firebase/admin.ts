@@ -1,6 +1,6 @@
 import { getApps, getApp, initializeApp, cert } from "firebase-admin/app";
-import { getAuth } from "firebase-admin/auth";
-import { getFirestore } from "firebase-admin/firestore";
+import { getAuth, type Auth } from "firebase-admin/auth";
+import { getFirestore, type Firestore } from "firebase-admin/firestore";
 import * as fs from "fs";
 import * as path from "path";
 
@@ -57,6 +57,15 @@ function getAdminApp() {
   return initializeApp({ credential });
 }
 
-const adminApp = getAdminApp();
-export const adminAuth = getAuth(adminApp);
-export const adminDb = getFirestore(adminApp);
+function withLazyInit<T>(factory: () => T): T {
+  return new Proxy({} as object, {
+    get(_target, prop, receiver) {
+      const instance = factory() as Record<string | symbol, unknown>;
+      const value = Reflect.get(instance, prop, receiver);
+      return typeof value === "function" ? value.bind(instance) : value;
+    },
+  }) as T;
+}
+
+export const adminAuth = withLazyInit<Auth>(() => getAuth(getAdminApp()));
+export const adminDb = withLazyInit<Firestore>(() => getFirestore(getAdminApp()));
