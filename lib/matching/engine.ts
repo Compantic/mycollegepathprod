@@ -734,7 +734,7 @@ const HeuristicScoringAgent: MatchingAgent = {
 
       const round1 = (v: number) => Math.round(v * 10) / 10;
 
-      const factorBreakdown = {
+      const factorBreakdown: NonNullable<CollegeMatch["factorBreakdown"]> = {
         gpa: gpaPoints > 0 ? round1(gpaPoints) : undefined,
         sat: satPoints > 0 ? round1(satPoints) : undefined,
         act: actPoints > 0 ? round1(actPoints) : undefined,
@@ -743,7 +743,7 @@ const HeuristicScoringAgent: MatchingAgent = {
         selectivity: selectivityPoints > 0 ? round1(selectivityPoints) : undefined,
         activities: activityPoints > 0 ? round1(activityPoints) : undefined,
         personality: personalityPoints > 0 ? round1(personalityPoints) : undefined,
-      } as CollegeMatch["factorBreakdown"];
+      };
 
       const breakdownEntries = Object.entries(factorBreakdown).filter(
         ([, v]) => typeof v === "number" && v > 0

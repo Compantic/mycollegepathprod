@@ -35,10 +35,11 @@ export function OnboardingStepCard({
     if (!formId || typeof document === "undefined") return;
     const form = document.getElementById(formId) as HTMLFormElement | null;
     if (!form) return;
+    const formEl = form;
 
     function collectFields() {
       const controls = Array.from(
-        form.querySelectorAll<HTMLInputElement | HTMLSelectElement | HTMLTextAreaElement>(
+        formEl.querySelectorAll<HTMLInputElement | HTMLSelectElement | HTMLTextAreaElement>(
           "input, select, textarea"
         )
       ).filter((el) => {
@@ -74,11 +75,11 @@ export function OnboardingStepCard({
     }
 
     collectFields();
-    form.addEventListener("input", collectFields);
-    form.addEventListener("change", collectFields);
+    formEl.addEventListener("input", collectFields);
+    formEl.addEventListener("change", collectFields);
     return () => {
-      form.removeEventListener("input", collectFields);
-      form.removeEventListener("change", collectFields);
+      formEl.removeEventListener("input", collectFields);
+      formEl.removeEventListener("change", collectFields);
     };
   }, [formId]);
 
