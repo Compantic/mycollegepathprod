@@ -1,0 +1,47 @@
+rules_version = '2';
+service cloud.firestore {
+  match /databases/{database}/documents {
+
+    // Kullanıcı sadece kendi users doc'unu okuyup yazabilir (onboarding, session)
+    match /users/{userId} {
+      allow read, write: if request.auth != null && request.auth.uid == userId;
+
+      // Favoriler: sadece kendi alt koleksiyonu
+      match /favorites/{docId} {
+        allow read, write: if request.auth != null && request.auth.uid == userId;
+      }
+
+      // Eşleşme sonuçları: sunucu yazar, istemci okuyabilir (API üzerinden de kullanılıyor)
+      match /matches/{docId} {
+        allow read: if request.auth != null && request.auth.uid == userId;
+        allow write: if false;
+      }
+
+      // Kolej notları: kullanıcı sadece kendi notlarını okuyup yazabilir
+      match /collegeNotes/{docId} {
+        allow read, write: if request.auth != null && request.auth.uid == userId;
+      }
+
+      // AI Consultant sohbet geçmişi: kullanıcı sadece kendi oturumlarını okuyup yazabilir
+      match /chatSessions/{docId} {
+        allow read, write: if request.auth != null && request.auth.uid == userId;
+      }
+
+      // Essay Coach kayıtları: kullanıcı sadece kendi essay'lerini okuyup yazabilir
+      match /essays/{docId} {
+        allow read, write: if request.auth != null && request.auth.uid == userId;
+      }
+    }
+
+    // Öğrenci profili: sadece kendi profili
+    match /studentProfiles/{userId} {
+      allow read, write: if request.auth != null && request.auth.uid == userId;
+    }
+
+    // Kaydedilen kolejler: sadece kendi kayıtları (userId alanına göre)
+    match /savedColleges/{docId} {
+      allow read, update, delete: if request.auth != null && resource.data.userId == request.auth.uid;
+      allow create: if request.auth != null && request.resource.data.userId == request.auth.uid;
+    }
+  }
+}
