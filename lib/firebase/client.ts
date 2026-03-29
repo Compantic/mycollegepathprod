@@ -53,3 +53,8 @@ export const app = withLazyInit<FirebaseApp>(() => getOrCreateApp());
 export const auth = withLazyInit<Auth>(() => getAuth(getOrCreateApp()));
 export const db = withLazyInit<Firestore>(() => getFirestore(getOrCreateApp()));
 export const storage = withLazyInit<FirebaseStorage>(() => getStorage(getOrCreateApp()));
+
+/** False when NEXT_PUBLIC_FIREBASE_API_KEY is missing — real sign-in will not work (build placeholder only). */
+export function isFirebaseClientConfigured(): boolean {
+  return Boolean(process.env.NEXT_PUBLIC_FIREBASE_API_KEY?.trim());
+}

@@ -4,11 +4,11 @@ import { Suspense, useState } from "react";
 import Link from "next/link";
 import { useRouter, useSearchParams } from "next/navigation";
 import { signInWithEmail, signInWithGoogle } from "@/lib/firebase/auth";
+import { mapFirebaseAuthError } from "@/lib/firebase/authErrors";
+import { isFirebaseClientConfigured } from "@/lib/firebase/client";
 import { LogoIcon } from "@/components/landing/LogoIcon";
 import { Input } from "@/components/ui/input";
 import { Button } from "@/components/ui/button";
-
-const FIREBASE_USER_NOT_FOUND = "auth/user-not-found";
 
 function LoginForm() {
   const router = useRouter();
@@ -42,12 +42,11 @@ function LoginForm() {
       const token = await cred.user.getIdToken();
       await setSessionAndRedirect(token);
     } catch (err: unknown) {
-      const code = err && typeof err === "object" && "code" in err ? String((err as { code: string }).code) : "";
-      if (code === FIREBASE_USER_NOT_FOUND) {
+      const mapped = mapFirebaseAuthError(err);
+      if (mapped.kind === "no-account") {
         setError("no-account");
       } else {
-        const message = err instanceof Error ? err.message : "Sign in failed. Please try again.";
-        setError(message);
+        setError(mapped.text);
       }
     } finally {
       setLoading(false);
@@ -62,7 +61,8 @@ function LoginForm() {
       const token = await cred.user.getIdToken();
       await setSessionAndRedirect(token);
     } catch (err) {
-      setError(err instanceof Error ? err.message : "Sign in failed. Please try again.");
+      const mapped = mapFirebaseAuthError(err);
+      setError(mapped.kind === "no-account" ? "Bu e-posta ile kayıt bulunamadı. Önce hesap oluşturun." : mapped.text);
     } finally {
       setGoogleLoading(false);
     }
@@ -90,6 +90,17 @@ function LoginForm() {
           <p className="mt-2 text-sm text-text-muted leading-relaxed">
             Your journey to the perfect campus continues here. Let&apos;s make your college dreams a reality.
           </p>
+
+          {!isFirebaseClientConfigured() ? (
+            <div
+              className="mt-4 rounded-xl border border-amber-200 bg-amber-50 px-3 py-2.5 text-sm text-amber-900"
+              role="status"
+            >
+              Firebase istemci anahtarı yok (<code className="rounded bg-amber-100 px-1">NEXT_PUBLIC_FIREBASE_API_KEY</code>
+              ). Proje kökünde <code className="rounded bg-amber-100 px-1">.env.local</code> oluşturup Firebase Console’daki Web
+              uygulama yapılandırmasını ekleyin; aksi halde giriş çalışmaz.
+            </div>
+          ) : null}
 
           <form onSubmit={handleSubmit} className="mt-6 space-y-4">
             <div>
