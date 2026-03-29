@@ -5,8 +5,7 @@ import { getStorage, type FirebaseStorage } from "firebase/storage";
 
 /**
  * When NEXT_PUBLIC_FIREBASE_* is missing (e.g. GitHub Actions without secrets),
- * Firebase Auth throws auth/invalid-api-key during static generation. A format-valid
- * placeholder config allows `next build` to complete; real deployments must set env vars.
+ * a format-valid placeholder allows `next build` to complete; real deployments must set env vars.
  */
 const BUILD_PLACEHOLDER_CONFIG: FirebaseOptions = {
   apiKey: "AIzaSyCiBuildPlaceholder00000000000000000000",
@@ -39,20 +38,15 @@ function getOrCreateApp(): FirebaseApp {
   return initializeApp(resolveFirebaseConfig());
 }
 
-function withLazyInit<T>(factory: () => T): T {
-  return new Proxy({} as object, {
-    get(_target, prop, receiver) {
-      const instance = factory() as Record<string | symbol, unknown>;
-      const value = Reflect.get(instance, prop, receiver);
-      return typeof value === "function" ? value.bind(instance) : value;
-    },
-  }) as T;
-}
-
-export const app = withLazyInit<FirebaseApp>(() => getOrCreateApp());
-export const auth = withLazyInit<Auth>(() => getAuth(getOrCreateApp()));
-export const db = withLazyInit<Firestore>(() => getFirestore(getOrCreateApp()));
-export const storage = withLazyInit<FirebaseStorage>(() => getStorage(getOrCreateApp()));
+/**
+ * Do not wrap `db` or `storage` in Proxy: Firestore `collection(db, ...)` requires a real
+ * Firestore instance (instanceof check), not a Proxy.
+ */
+const app = getOrCreateApp();
+export { app };
+export const auth: Auth = getAuth(app);
+export const db: Firestore = getFirestore(app);
+export const storage: FirebaseStorage = getStorage(app);
 
 /** False when NEXT_PUBLIC_FIREBASE_API_KEY is missing — real sign-in will not work (build placeholder only). */
 export function isFirebaseClientConfigured(): boolean {
