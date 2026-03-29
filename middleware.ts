@@ -26,6 +26,8 @@ export function middleware(req: NextRequest) {
   return NextResponse.next();
 }
 
+// Match only app routes — never run auth logic on /_next/*, /api/*, or static files.
+// A too-broad matcher can interfere with dev asset serving and cause unstyled pages (CSS/JS 404).
 export const config = {
-  matcher: ["/((?!_next/static|_next/image|favicon.ico).*)"],
+  matcher: ["/((?!api|_next/static|_next/image|favicon.ico|.*\\..*).*)"],
 };
