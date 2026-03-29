@@ -91,12 +91,20 @@ export default async function LandingPage() {
             <span className="text-sm font-medium text-slate-600">For Parents</span>
             <a href="#trust" className="text-sm font-medium text-slate-600 hover:text-primary-600">Trust &amp; Privacy</a>
           </div>
-          <Link
-            href="/onboarding/step-1"
-            className="rounded-full bg-slate-900 px-4 py-2 text-sm font-semibold text-white transition hover:opacity-90"
-          >
-            Start Free Trial
-          </Link>
+          <div className="flex shrink-0 items-center gap-2 sm:gap-3">
+            <Link
+              href="/login"
+              className="rounded-full border border-slate-300 bg-white px-3 py-2 text-sm font-semibold text-slate-800 shadow-sm transition hover:bg-slate-50 sm:px-4"
+            >
+              Log in
+            </Link>
+            <Link
+              href="/onboarding/step-1"
+              className="rounded-full bg-slate-900 px-3 py-2 text-sm font-semibold text-white transition hover:opacity-90 sm:px-4"
+            >
+              Start Free Trial
+            </Link>
+          </div>
         </div>
       </nav>
 

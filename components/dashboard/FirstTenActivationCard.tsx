@@ -20,10 +20,10 @@ export function FirstTenActivationCard({
             First 10 Minutes Activation
           </p>
           <h2 className="mt-1 text-lg font-bold text-text-primary">
-            Hos geldin! Ilk adimlari hizlica tamamlayalim
+            Welcome — let&apos;s knock out your first steps
           </h2>
           <p className="mt-1 text-sm text-text-muted">
-            Bu mini checklist&apos;i bitirmen ortalama 10 dakika surer ve ilk oturumdaki kaybi azaltir.
+            Finishing this mini checklist takes about 10 minutes on average and reduces first-session drop-off.
           </p>
         </div>
         <button
@@ -32,7 +32,7 @@ export function FirstTenActivationCard({
           className="inline-flex items-center gap-1 rounded-lg border border-slate-200 bg-white px-2.5 py-1.5 text-xs font-medium text-text-muted hover:bg-slate-50"
         >
           <X className="h-3.5 w-3.5" />
-          Kapat
+          Dismiss
         </button>
       </div>
 
@@ -43,7 +43,7 @@ export function FirstTenActivationCard({
         />
       </div>
       <p className="mt-1 text-xs text-text-muted">
-        {done.length}/{steps.length} tamamlandi
+        {done.length}/{steps.length} complete
       </p>
 
       <div className="mt-4 grid gap-2 sm:grid-cols-2">
@@ -69,7 +69,7 @@ export function FirstTenActivationCard({
                 <span className={checked ? "line-through text-text-muted" : ""}>{step.label}</span>
               </label>
               <Link href={step.href} className="text-xs font-semibold text-primary-600 hover:underline">
-                Git
+                Open
               </Link>
             </div>
           );
@@ -79,7 +79,7 @@ export function FirstTenActivationCard({
       {done.length === steps.length && (
         <div className="mt-3 inline-flex items-center gap-2 rounded-full bg-emerald-100 px-3 py-1 text-xs font-semibold text-emerald-700">
           <CheckCircle2 className="h-3.5 w-3.5" />
-          Harika! Aktivasyon checklist tamamlandi.
+          Nice — activation checklist complete.
         </div>
       )}
     </section>

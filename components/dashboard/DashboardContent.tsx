@@ -420,7 +420,7 @@ export function DashboardContent({ data, readiness, health, aiTip, aiLeaderboard
             </h3>
             <div className="mt-3 space-y-2">
               {aiLeaderboard.length === 0 ? (
-                <p className="text-xs text-text-muted">Henüz AI score verisi yok.</p>
+                <p className="text-xs text-text-muted">No AI score data yet.</p>
               ) : (
                 aiLeaderboard.slice(0, 8).map((u, i) => (
                   <div key={`${u.uid}-${i}`} className="flex items-center justify-between rounded-lg border border-slate-200 bg-slate-50 p-2">

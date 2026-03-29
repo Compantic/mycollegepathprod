@@ -1,5 +1,5 @@
 /**
- * Maps Firebase Auth errors to short user-facing messages (Turkish).
+ * Maps Firebase Auth errors to short user-facing messages (English).
  * See: https://firebase.google.com/docs/auth/admin/errors
  */
 export type MappedAuthError = { kind: "no-account" } | { kind: "message"; text: string };
@@ -13,19 +13,19 @@ export function mapFirebaseAuthError(err: unknown): MappedAuthError {
   }
 
   const byCode: Record<string, string> = {
-    "auth/wrong-password": "E-posta veya şifre hatalı. Tekrar deneyin veya şifrenizi sıfırlayın.",
-    "auth/invalid-credential": "E-posta veya şifre hatalı. Bilgilerinizi kontrol edin.",
-    "auth/invalid-login-credentials": "E-posta veya şifre hatalı. Bilgilerinizi kontrol edin.",
-    "auth/invalid-email": "Geçerli bir e-posta adresi girin.",
-    "auth/user-disabled": "Bu hesap devre dışı bırakılmış. Destek ile iletişime geçin.",
-    "auth/too-many-requests": "Çok fazla deneme yapıldı. Bir süre sonra tekrar deneyin.",
-    "auth/network-request-failed": "Ağ hatası. İnternet bağlantınızı kontrol edip tekrar deneyin.",
+    "auth/wrong-password": "Incorrect email or password. Try again or reset your password.",
+    "auth/invalid-credential": "Incorrect email or password. Check your details and try again.",
+    "auth/invalid-login-credentials": "Incorrect email or password. Check your details and try again.",
+    "auth/invalid-email": "Enter a valid email address.",
+    "auth/user-disabled": "This account has been disabled. Contact support.",
+    "auth/too-many-requests": "Too many attempts. Wait a bit and try again.",
+    "auth/network-request-failed": "Network error. Check your connection and try again.",
     "auth/invalid-api-key":
-      "Firebase yapılandırması eksik veya hatalı. .env.local içindeki NEXT_PUBLIC_FIREBASE_* değerlerini kontrol edin.",
-    "auth/popup-closed-by-user": "Google penceresi kapatıldı. Tekrar deneyin.",
-    "auth/cancelled-popup-request": "Google girişi iptal edildi. Tekrar deneyin.",
+      "Firebase is misconfigured. Check NEXT_PUBLIC_FIREBASE_* in .env.local.",
+    "auth/popup-closed-by-user": "The Google sign-in window was closed. Try again.",
+    "auth/cancelled-popup-request": "Google sign-in was cancelled. Try again.",
     "auth/account-exists-with-different-credential":
-      "Bu e-posta farklı bir giriş yöntemiyle kayıtlı. E-posta/şifre veya doğru Google hesabını kullanın.",
+      "This email is registered with another sign-in method. Use email/password or the correct Google account.",
   };
 
   if (code && byCode[code]) {
@@ -36,5 +36,5 @@ export function mapFirebaseAuthError(err: unknown): MappedAuthError {
     return { kind: "message", text: err.message };
   }
 
-  return { kind: "message", text: "Giriş başarısız. Lütfen tekrar deneyin." };
+  return { kind: "message", text: "Sign-in failed. Please try again." };
 }

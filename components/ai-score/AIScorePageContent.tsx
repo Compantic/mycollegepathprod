@@ -90,7 +90,7 @@ export function AIScorePageContent({
               My AI Score
             </h1>
             <p className="mt-2 max-w-2xl text-sm text-text-muted">
-              Profil bilgilerine gore AI readiness puani olusturulur, kaydedilir ve tum kullanicilar arasinda siralanir.
+              Builds an AI readiness score from your profile, saves it, and ranks you among all users.
             </p>
           </div>
           <button
@@ -100,7 +100,7 @@ export function AIScorePageContent({
             className="inline-flex items-center gap-2 rounded-xl bg-primary-500 px-5 py-2.5 text-sm font-semibold text-white hover:bg-primary-600 disabled:cursor-not-allowed disabled:opacity-70"
           >
             {loadingScore ? <Loader2 className="h-4 w-4 animate-spin" /> : <Sparkles className="h-4 w-4" />}
-            AI Score&apos;u hesapla
+            Calculate AI Score
           </button>
         </div>
         <div className="mt-5 grid gap-3 md:grid-cols-3">
@@ -174,14 +174,14 @@ export function AIScorePageContent({
             </>
           ) : (
             <div className="rounded-xl border border-dashed border-slate-300 bg-slate-50 p-5 text-sm text-text-muted">
-              Henuz skorun olusmadi. Ustteki butona basip ilk AI score&apos;unu olustur.
+              No score yet. Use the button above to calculate your first AI score.
             </div>
           )}
         </section>
 
         <section className="rounded-2xl border border-bg-border bg-white p-5 shadow-sm lg:col-span-4">
           <h3 className="text-sm font-semibold text-text-primary">Scoring rubric</h3>
-          <p className="mt-1 text-xs text-text-muted">AI puani bu ana kategorilere gore hesaplanir.</p>
+          <p className="mt-1 text-xs text-text-muted">The AI score is based on these main categories.</p>
           <div className="mt-4 space-y-2">
             {[
               { icon: BarChart3, title: "Academics", weight: "40%" },
@@ -199,7 +199,7 @@ export function AIScorePageContent({
             ))}
           </div>
           <p className="mt-4 text-xs text-text-muted">
-            Tip: GPA, test score, activity depth ve hedef netligi arttikca skorun daha hizli yukselir.
+            Tip: Stronger GPA, test scores, activity depth, and clearer goals tend to raise your score faster.
           </p>
         </section>
       </div>
@@ -221,7 +221,7 @@ export function AIScorePageContent({
         </div>
 
         {board.length === 0 ? (
-          <p className="text-sm text-text-muted">Henuz skor hesaplanmadi. Once kendi AI score&apos;unu hesapla.</p>
+          <p className="text-sm text-text-muted">No scores yet. Calculate your AI score first.</p>
         ) : (
           <div className="grid gap-2 md:grid-cols-2">
             {board.map((row, i) => {

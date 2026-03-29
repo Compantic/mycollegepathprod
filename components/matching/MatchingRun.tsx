@@ -289,7 +289,7 @@ export function MatchingRun({ basePath = "/app/colleges" }: { basePath?: string 
               <div>
                 <h3 className="text-base font-bold text-text-primary">Portfolio Simulation</h3>
                 <p className="mt-1 text-xs text-text-muted">
-                  Reach/Match/Safety dağılımın ve liste dengeleme önerisi.
+                  Your Reach/Match/Safety mix and tips to balance the list.
                 </p>
               </div>
               {runId && (

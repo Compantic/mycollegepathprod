@@ -18,9 +18,10 @@ function fallbackScore(profile: Awaited<ReturnType<typeof getDashboardUserData>>
   if (!profile) {
     return {
       score: 20,
-      summary: "Profil bilgileri eksik olduğu için skor düşük görünüyor. Daha fazla bilgi girdikçe skor daha doğru hale gelir.",
+      summary:
+        "Your score looks low because your profile is incomplete. It will get more accurate as you add details.",
       strengths: [],
-      improvements: ["Profilini tamamla", "GPA ve test skorlarını ekle", "En az 5 college kaydet"],
+      improvements: ["Complete your profile", "Add GPA and test scores", "Save at least 5 colleges"],
     };
   }
   let score = 30;
@@ -30,9 +31,13 @@ function fallbackScore(profile: Awaited<ReturnType<typeof getDashboardUserData>>
   if ((profile.onboardingAnswers ? Object.keys(profile.onboardingAnswers).length : 0) >= 15) score += 15;
   return {
     score: Math.min(100, score),
-    summary: "AI servisi geçici olarak yanıt veremediği için tahmini skor oluşturuldu.",
+    summary: "Estimated score generated because the AI service could not respond.",
     strengths: [],
-    improvements: ["Akademik ve aktivite alanlarını detaylandır", "College listesini dengele", "Roadmap görevlerini tamamla"],
+    improvements: [
+      "Add detail to academics and activities",
+      "Balance your college list",
+      "Complete roadmap tasks",
+    ],
   };
 }
 

@@ -148,7 +148,7 @@ export function InsightsTimelineContent() {
           Insight Timeline
         </h1>
         <p className="mt-1 text-sm text-text-muted">
-          Matching ve roadmap geçmişini karşılaştır, ilerleme trendini gör, aksiyonlarını takip et.
+          Compare matching and roadmap history, see progress trends, and track completed actions.
         </p>
       </div>
 

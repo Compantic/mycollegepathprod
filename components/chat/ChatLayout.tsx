@@ -94,7 +94,7 @@ export function ChatLayout() {
                 setActiveId(newId);
               })
               .catch(() => {
-                toast({ description: "Sohbet Firestore'a kaydedilemiyor. Kalıcı kayıt için: firebase deploy --only firestore:rules", variant: "error" });
+                toast({ description: "Could not save chat to Firestore. For persistent storage run: firebase deploy --only firestore:rules", variant: "error" });
                 setConversations({ local: { title: DEFAULT_TITLE, messages: [] } });
                 setActiveId("local");
               })
@@ -119,13 +119,13 @@ export function ChatLayout() {
                   setConversations(parsed);
                   setActiveId(Object.keys(parsed)[0]);
                   setSessionsLoading(false);
-                  toast({ description: "Sohbet geçmişi cihaz yedeğinden yüklendi. Kalıcı kayıt için Firestore kurallarını deploy edin.", variant: "info" });
+                  toast({ description: "Chat history loaded from device backup. Deploy Firestore rules for persistent cloud storage.", variant: "info" });
                   return;
                 }
               }
             } catch {}
           }
-          toast({ description: "Chat geçmişi yüklenemedi. Kalıcı kayıt için: firebase deploy --only firestore:rules", variant: "error" });
+          toast({ description: "Could not load chat history. For persistent storage run: firebase deploy --only firestore:rules", variant: "error" });
           setConversations({ local: { title: DEFAULT_TITLE, messages: [] } });
           setActiveId("local");
           setSessionsLoading(false);
@@ -274,7 +274,7 @@ export function ChatLayout() {
         setActiveId(newId);
       })
       .catch(() => {
-        toast({ description: "Yeni sohbet kaydedilemiyor. firebase deploy --only firestore:rules çalıştırın.", variant: "error" });
+        toast({ description: "Could not save new chat. Run: firebase deploy --only firestore:rules", variant: "error" });
         const localId = `local-${Date.now()}`;
         setConversations((prev) => ({ ...prev, [localId]: { title: DEFAULT_TITLE, messages: [] } }));
         setActiveId(localId);

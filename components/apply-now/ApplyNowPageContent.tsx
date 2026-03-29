@@ -139,7 +139,7 @@ export function ApplyNowPageContent() {
           Apply Now Shortlist
         </h1>
         <p className="mt-1 text-sm text-text-muted">
-          Matching sonucundan secili bir apply listesi olustur, her okulun basvuru durumunu tek yerden yonet.
+          Build an apply shortlist from a matching run and track each school&apos;s application status in one place.
         </p>
         <div className="mt-4 grid gap-3 sm:grid-cols-3">
           <div className="rounded-xl border border-slate-200 bg-white p-3">

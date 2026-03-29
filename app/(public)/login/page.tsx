@@ -62,7 +62,7 @@ function LoginForm() {
       await setSessionAndRedirect(token);
     } catch (err) {
       const mapped = mapFirebaseAuthError(err);
-      setError(mapped.kind === "no-account" ? "Bu e-posta ile kayıt bulunamadı. Önce hesap oluşturun." : mapped.text);
+      setError(mapped.kind === "no-account" ? "No account for this email. Create one first." : mapped.text);
     } finally {
       setGoogleLoading(false);
     }
@@ -96,9 +96,9 @@ function LoginForm() {
               className="mt-4 rounded-xl border border-amber-200 bg-amber-50 px-3 py-2.5 text-sm text-amber-900"
               role="status"
             >
-              Firebase istemci anahtarı yok (<code className="rounded bg-amber-100 px-1">NEXT_PUBLIC_FIREBASE_API_KEY</code>
-              ). Proje kökünde <code className="rounded bg-amber-100 px-1">.env.local</code> oluşturup Firebase Console’daki Web
-              uygulama yapılandırmasını ekleyin; aksi halde giriş çalışmaz.
+              Missing Firebase client key (<code className="rounded bg-amber-100 px-1">NEXT_PUBLIC_FIREBASE_API_KEY</code>
+              ). Add a <code className="rounded bg-amber-100 px-1">.env.local</code> file in the project root with your Web app
+              config from the Firebase Console; sign-in will not work without it.
             </div>
           ) : null}
 
