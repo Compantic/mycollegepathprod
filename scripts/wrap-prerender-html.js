@@ -6,9 +6,14 @@
 const fs = require("fs");
 const path = require("path");
 
-const root = path.join(process.cwd(), ".next", "server", "app");
-if (!fs.existsSync(root)) {
-  console.warn("wrap-prerender-html: .next/server/app missing — skip");
+/** Both trees exist with `output: "standalone"`; Docker copies `.next/standalone` only — wrap both after build. */
+const roots = [
+  path.join(process.cwd(), ".next", "server", "app"),
+  path.join(process.cwd(), ".next", "standalone", ".next", "server", "app"),
+].filter((p) => fs.existsSync(p));
+
+if (roots.length === 0) {
+  console.warn("wrap-prerender-html: no prerender app dirs — skip");
   process.exit(0);
 }
 
@@ -32,12 +37,14 @@ function wrapDocument(inner) {
 }
 
 let wrapped = 0;
-for (const file of walkHtmlFiles(root)) {
-  const raw = fs.readFileSync(file, "utf8");
-  if (!needsWrap(raw)) continue;
-  fs.writeFileSync(file, wrapDocument(raw), "utf8");
-  wrapped += 1;
-  console.log("wrap-prerender-html:", path.relative(process.cwd(), file));
+for (const root of roots) {
+  for (const file of walkHtmlFiles(root)) {
+    const raw = fs.readFileSync(file, "utf8");
+    if (!needsWrap(raw)) continue;
+    fs.writeFileSync(file, wrapDocument(raw), "utf8");
+    wrapped += 1;
+    console.log("wrap-prerender-html:", path.relative(process.cwd(), file));
+  }
 }
 
 console.log(`wrap-prerender-html: wrapped ${wrapped} file(s)`);
