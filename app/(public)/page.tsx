@@ -1,9 +1,5 @@
 import Link from "next/link";
 import { getPublicMarketingMetrics, toPublicSignals } from "@/lib/marketing/publicMetrics";
-
-/** Prerender for faster TTFB; `scripts/wrap-prerender-html.js` fixes linux/amd64 prerenders that omit the document shell (Safari white screen). */
-export const dynamic = "force-static";
-export const revalidate = 300;
 import {
   ArrowRight,
   Shield,
@@ -23,6 +19,9 @@ import {
   Siren,
   Medal,
 } from "lucide-react";
+
+/** Avoid static prerender of `/` in Docker: fragment-only HTML omits `app/layout` head/body and breaks hydration (React #418/#423, HierarchyRequestError). */
+export const dynamic = "force-dynamic";
 
 const trustCards = [
   {
