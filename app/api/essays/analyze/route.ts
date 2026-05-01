@@ -10,29 +10,13 @@ const bodySchema = z.object({
   essay: z.string().min(50, "Essay should be at least 50 characters."),
 });
 
-const DEFAULT_RESULT = {
-  toneSummary: "Reflective and personal.",
-  criticalIssues: [] as { title: string; description: string }[],
-  suggestions: [] as { title: string; description: string }[],
-  strengths: [] as { title: string; description: string }[],
-  heatmap: { impact: 3, reflection: 3, specificity: 3, structure: 3, voice: 3 },
-  overallScore: 60,
-  reportSummary: "Your essay shows solid potential. Focus on structure and specificity to strengthen your narrative.",
-  criteria: [
-    { name: "Clarity", score: 3, maxScore: 5, description: "Ideas are generally clear." },
-    { name: "Structure", score: 3, maxScore: 5, description: "Logical flow could be tightened." },
-    { name: "Voice", score: 3, maxScore: 5, description: "Personal voice is present." },
-    { name: "Impact", score: 3, maxScore: 5, description: "Opening and conclusion can be stronger." },
-    { name: "Specificity", score: 3, maxScore: 5, description: "Add concrete examples where possible." },
-  ] as { name: string; score: number; maxScore: number; description: string }[],
-};
-
 export async function POST(req: NextRequest) {
   try {
     const user = await getSessionUserFromRequest(req).catch(() => null);
-    if (user) {
-      await enforceUserRateLimit({ userId: user.uid, bucket: "essay_analyze", windowMs: 60_000, maxRequests: 15 });
+    if (!user) {
+      return NextResponse.json({ error: "Unauthorized" }, { status: 401 });
     }
+    await enforceUserRateLimit({ userId: user.uid, bucket: "essay_analyze", windowMs: 60_000, maxRequests: 15 });
 
     const json = await req.json().catch(() => ({}));
     const parsed = bodySchema.safeParse(json);
@@ -73,17 +57,11 @@ ESSAY:
     try {
       const jsonStr = raw.replace(/^```json?\s*|\s*```$/g, "").trim();
       result = JSON.parse(jsonStr);
-      if (result && typeof result === "object" && !("overallScore" in result)) {
-        (result as Record<string, unknown>).overallScore = DEFAULT_RESULT.overallScore;
-      }
-      if (result && typeof result === "object" && !("reportSummary" in result)) {
-        (result as Record<string, unknown>).reportSummary = DEFAULT_RESULT.reportSummary;
-      }
-      if (result && typeof result === "object" && !("criteria" in result)) {
-        (result as Record<string, unknown>).criteria = DEFAULT_RESULT.criteria;
-      }
     } catch {
-      result = DEFAULT_RESULT;
+      return NextResponse.json(
+        { error: "Analysis response format was invalid. Please try again." },
+        { status: 502 }
+      );
     }
 
     return NextResponse.json(result);

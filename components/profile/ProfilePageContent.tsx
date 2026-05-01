@@ -2,7 +2,10 @@
 
 import Link from "next/link";
 import { useRouter } from "next/navigation";
-import { useEffect, useRef, useState } from "react";
+import { useEffect, useMemo, useRef, useState } from "react";
+import html2canvas from "html2canvas";
+import jsPDF from "jspdf";
+import { motion, AnimatePresence, useReducedMotion } from "framer-motion";
 import {
   GraduationCap,
   Award,
@@ -11,1045 +14,833 @@ import {
   BarChart3,
   CheckSquare,
   Calendar,
-  Brain,
   Star,
   ClipboardList,
-  Lightbulb,
-  Megaphone,
-  FlaskConical,
-  Heart,
-  ChevronRight,
   Edit3,
-  Palette,
   Camera,
+  School,
+  MapPin,
+  Trophy,
+  ChevronRight,
+  Contact,
+  Shield,
 } from "lucide-react";
+import { LogoIcon } from "@/components/landing/LogoIcon";
+import { fetchWithAuth } from "@/lib/auth/fetchWithAuth";
+
 import { Input } from "@/components/ui/input";
-import { GlassCard } from "@/components/ui/GlassCard";
-import { ProgressBar } from "@/components/ui/ProgressBar";
 import { computeProfileStrength } from "@/lib/profile/profileStrength";
 import { cn } from "@/lib/utils";
-import type { GradeLevel } from "@/lib/onboarding/schema";
+import { type GradeLevel, defaultAnswers } from "@/lib/onboarding/schema";
 import type { OnboardingDraft } from "@/lib/onboarding/types";
 import { OnboardingSummary } from "@/components/profile/OnboardingSummary";
-import { ProfileStepEditorModal } from "@/components/profile/ProfileStepEditorModal";
 import { auth } from "@/lib/firebase/client";
 import { getStudentProfile, setStudentProfile } from "@/lib/firebase/firestore";
 import { uploadProfilePhoto } from "@/lib/firebase/storage";
-import { persistOnboardingToFirestore, saveOnboardingDraft } from "@/lib/onboarding/storage";
+import { persistOnboardingToFirestore } from "@/lib/onboarding/storage";
 import { useToastOptional } from "@/components/ui/toast";
 
-const PROFILE_HEADER_COLOR_KEY = "profileHeaderColor";
+import { MeshGradient } from "./MeshGradient";
+import { ProfileStrengthRing } from "./ProfileStrengthRing";
+import { ProfileEditDrawer } from "./ProfileEditDrawer";
+import { Step1Editor, Step2Editor, Step3Editor, Step4Editor, Step5Editor } from "./StepEditors";
 
-const HEADER_COLORS: { id: string; label: string; from: string; to: string }[] = [
-  { id: "blue", label: "Blue", from: "#2563eb", to: "#3b82f6" },
-  { id: "indigo", label: "Indigo", from: "#4f46e5", to: "#6366f1" },
-  { id: "violet", label: "Violet", from: "#7c3aed", to: "#8b5cf6" },
-  { id: "emerald", label: "Emerald", from: "#059669", to: "#10b981" },
-  { id: "teal", label: "Teal", from: "#0d9488", to: "#14b8a6" },
-  { id: "amber", label: "Amber", from: "#d97706", to: "#f59e0b" },
-  { id: "rose", label: "Rose", from: "#e11d48", to: "#f43f5e" },
-  { id: "slate", label: "Slate", from: "#475569", to: "#64748b" },
-  { id: "sky", label: "Sky", from: "#0284c7", to: "#0ea5e9" },
-];
-
-export interface ProfilePageContentProps {
-  onboardingAnswers: OnboardingDraft | null;
-  profilePhotoUrl?: string | null;
-}
-
-function hasAcademicData(o: OnboardingDraft | null): boolean {
-  if (!o) return false;
+// --- Glass Card Component (Unified Design) ---
+function BentoCard({ children, title, icon: Icon, className, onClickEdit }: any) {
   return (
-    o.gpa != null ||
-    o.satScore != null ||
-    o.actScore != null ||
-    (o.examsTaken?.length ?? 0) > 0 ||
-    (o.rigorousApCompleted ?? 0) + (o.rigorousApThisYear ?? 0) + (o.rigorousIbCompleted ?? 0) + (o.rigorousIbThisYear ?? 0) + (o.rigorousHonorsCompleted ?? 0) + (o.rigorousHonorsThisYear ?? 0) > 0 ||
-    o.researchPrograms === "Yes"
+    <div className={cn(
+      "relative overflow-hidden rounded-[2rem] border border-white/60 bg-white/70 backdrop-blur-3xl shadow-[0_8px_32px_rgba(0,0,0,0.04)]",
+      className
+    )}>
+      <div className="p-8">
+        <div className="flex items-center justify-between mb-8">
+          <div className="flex items-center gap-3">
+            {Icon && (
+              <div className="flex size-10 items-center justify-center rounded-xl bg-primary-50 text-primary-600 ring-1 ring-primary-100">
+                <Icon className="size-5" />
+              </div>
+            )}
+            <h3 className="text-xl font-black text-slate-900">{title}</h3>
+          </div>
+          {onClickEdit && (
+            <button 
+              onClick={onClickEdit}
+              className="flex size-8 items-center justify-center rounded-lg bg-slate-100 text-slate-500 transition-colors hover:bg-primary-50 hover:text-primary-600"
+            >
+              <Edit3 className="size-4" />
+            </button>
+          )}
+        </div>
+        {children}
+      </div>
+    </div>
   );
-}
-
-function hasExtracurricularsData(o: OnboardingDraft | null): boolean {
-  if (!o) return false;
-  const hasActivities = (o.activityTypes?.length ?? 0) > 0;
-  const hasAwards =
-    (o.awardsSchool?.length ?? 0) > 0 ||
-    (o.awardsState?.length ?? 0) > 0 ||
-    (o.awardsNational?.length ?? 0) > 0 ||
-    (o.awardsInternational?.length ?? 0) > 0;
-  return hasActivities || hasAwards;
-}
-
-function hasAnyProfileData(o: OnboardingDraft | null): boolean {
-  if (!o) return false;
-  return (
-    (o.firstName?.trim()?.length ?? 0) > 0 ||
-    (o.lastName?.trim()?.length ?? 0) > 0 ||
-    (o.currentHighSchool?.trim()?.length ?? 0) > 0 ||
-    o.expectedGraduationYear != null ||
-    o.graduationYear != null ||
-    o.gradeLevel != null ||
-    o.gpa != null ||
-    o.satScore != null ||
-    o.satTotal != null ||
-    o.actScore != null ||
-    o.actComposite != null ||
-    (o.activityTypes?.length ?? 0) > 0 ||
-    (o.awardsSchool?.length ?? 0) > 0 ||
-    (o.awardsState?.length ?? 0) > 0 ||
-    (o.awardsNational?.length ?? 0) > 0 ||
-    (o.awardsInternational?.length ?? 0) > 0
-  );
-}
-
-const navItems = [
-  { id: "academic", label: "Academic Profile", icon: GraduationCap },
-  { id: "achievements", label: "Achievements", icon: Award },
-  { id: "activities", label: "Activities", icon: Users },
-  { id: "college-list", label: "College List", icon: List },
-  { id: "onboarding", label: "Full Questionnaire", icon: ClipboardList },
-];
-
-function getStoredHeaderColor(): string {
-  if (typeof window === "undefined") return "blue";
-  return window.localStorage.getItem(PROFILE_HEADER_COLOR_KEY) || "blue";
 }
 
 export function ProfilePageContent({ onboardingAnswers, profilePhotoUrl }: ProfilePageContentProps) {
-  const [activeSection, setActiveSection] = useState("academic");
-  const [isEditingBasics, setIsEditingBasics] = useState(false);
-  const [savingBasics, setSavingBasics] = useState(false);
-  const [basicForm, setBasicForm] = useState({
-    gpa: "",
-    gradYear: "",
-    gradeLevel: "",
-    sat: "",
-    act: "",
-  });
-  const [showFullQuestionnaire, setShowFullQuestionnaire] = useState(false);
-  const [showEditQuestionnaire, setShowEditQuestionnaire] = useState(false);
-  const [savingQuestionnaire, setSavingQuestionnaire] = useState(false);
-  const [editingStep, setEditingStep] = useState<number | null>(null);
-  const [savingStep, setSavingStep] = useState(false);
-  const [displayPhotoUrl, setDisplayPhotoUrl] = useState<string | null>(profilePhotoUrl ?? null);
-  const [uploadingPhoto, setUploadingPhoto] = useState(false);
-  const photoInputRef = useRef<HTMLInputElement>(null);
-  const [headerColorId, setHeaderColorId] = useState<string>("blue");
-  const [fullForm, setFullForm] = useState({
-    firstName: "",
-    lastName: "",
-    currentHighSchool: "",
-    city: "",
-    state: "",
-    gpa: "",
-    gradYear: "",
-    gradeLevel: "",
-    sat: "",
-    act: "",
-  });
   const router = useRouter();
   const { toast } = useToastOptional();
+  const reduceMotion = useReducedMotion();
+  const photoInputRef = useRef<HTMLInputElement>(null);
 
-  // Sync and refetch profile photo (server may not have it yet after signup, or cache)
+  const [activeTab, setActiveTab] = useState("overview");
+  const [drawerMode, setDrawerMode] = useState<"basics" | "full" | "step" | null>(null);
+  const [editingStep, setEditingStep] = useState<number | null>(null);
+  const [isSaving, setIsSaving] = useState(false);
+  const cardRef = useRef<HTMLDivElement>(null);
+  const [userUid, setUserUid] = useState<string | null>(auth.currentUser?.uid ?? null);
+
+  // Stable student id derived from uid (fallbacks to name seed when uid unavailable).
+  const studentId = useMemo(() => {
+    const fallbackSeed = `${onboardingAnswers?.firstName ?? ""}${onboardingAnswers?.lastName ?? ""}` || "STUDENT";
+    const seed = (userUid ?? fallbackSeed).trim();
+    const hash = seed.split("").reduce((acc, char) => ((acc << 5) - acc + char.charCodeAt(0)) | 0, 0);
+    const normalized = Math.abs(hash);
+    const prefix = (normalized % 46656).toString(36).toUpperCase().padStart(3, "0");
+    const suffix = (Math.floor(normalized / 46656) % 10000).toString().padStart(4, "0");
+    return `CMP-${prefix}-${suffix}`;
+  }, [userUid, onboardingAnswers?.firstName, onboardingAnswers?.lastName]);
+
+  const downloadCard = async () => {
+    if (!cardRef.current) return;
+    
+    toast({
+      title: "Generating Card…",
+      description: "Optimizing layout and assets for PDF.",
+    });
+
+    try {
+      // 1. Resolve export photo as data URL before capture (most reliable with html2canvas).
+      let exportPhotoSrc = displayPhotoUrl ?? null;
+      if (displayPhotoUrl && /^https?:\/\//i.test(displayPhotoUrl)) {
+        try {
+          const proxiedUrl = `/api/image-proxy?url=${encodeURIComponent(displayPhotoUrl)}`;
+          const res = await fetch(proxiedUrl, { cache: "no-store" });
+          if (res.ok) {
+            const blob = await res.blob();
+            exportPhotoSrc = await new Promise<string>((resolve, reject) => {
+              const reader = new FileReader();
+              reader.onload = () => resolve(String(reader.result ?? ""));
+              reader.onerror = () => reject(new Error("Photo data URL conversion failed"));
+              reader.readAsDataURL(blob);
+            });
+          } else {
+            console.warn("Image proxy returned non-OK status for export:", res.status);
+          }
+        } catch (e) {
+          console.warn("Export photo conversion failed:", e);
+        }
+      }
+
+      // 2. Capture with precise settings
+      const canvas = await html2canvas(cardRef.current, {
+        useCORS: true,
+        scale: 2,
+        backgroundColor: "#0f172a",
+        logging: false,
+        onclone: (clonedDoc) => {
+          const glow = clonedDoc.querySelector("[data-export-hide-glow='true']");
+          if (glow && glow instanceof HTMLElement) {
+            glow.style.display = "none";
+          }
+          const photoImg = clonedDoc.getElementById('compantic-id-photo');
+          if (photoImg && exportPhotoSrc) {
+            (photoImg as HTMLImageElement).src = exportPhotoSrc;
+          }
+        }
+      });
+
+      const imgData = canvas.toDataURL("image/png");
+      const width = cardRef.current.clientWidth;
+      const height = cardRef.current.clientHeight;
+      
+      const pdf = new jsPDF({
+        orientation: width > height ? "l" : "p",
+        unit: "px",
+        format: [width, height],
+      });
+
+      pdf.addImage(imgData, "PNG", 0, 0, width, height);
+      pdf.save(`Compantic_Card_${forms.firstName || "Student"}.pdf`);
+
+      toast({
+        title: "Download Complete!",
+        description: "Your official Compantic Card is ready.",
+      });
+    } catch (error: any) {
+      console.error("PDF Export Error:", error);
+      toast({
+        title: "Export Failed",
+        description: "Please try again in a moment.",
+      });
+    }
+  };
+  const [displayPhotoUrl, setDisplayPhotoUrl] = useState<string | null>(profilePhotoUrl ?? null);
+  const [uploadingPhoto, setUploadingPhoto] = useState(false);
+  const [realRank, setRealRank] = useState<number | null>(null);
+
+  useEffect(() => {
+    const unsub = auth.onAuthStateChanged((user) => {
+      setUserUid(user?.uid ?? null);
+    });
+    return () => unsub();
+  }, []);
+
+  useEffect(() => {
+    async function getRank() {
+      try {
+        const res = await fetchWithAuth("/api/ai-score/leaderboard?limit=50");
+        const data = await res.json();
+        const myUid = auth.currentUser?.uid;
+        const idx = data.leaderboard?.findIndex((x: any) => x.uid === myUid);
+        if (idx !== undefined && idx >= 0) setRealRank(idx + 1);
+      } catch (e) { console.error(e); }
+    }
+    getRank();
+  }, []);
+  
+  
+  const [forms, setForms] = useState({
+    firstName: "",
+    lastName: "",
+    gpa: "",
+    gradYear: "",
+    gradeLevel: "",
+    sat: "",
+    act: "",
+    school: "",
+    city: "",
+    state: "",
+  });
+
+  const [stepData, setStepData] = useState<any>(null);
+
   useEffect(() => {
     setDisplayPhotoUrl(profilePhotoUrl ?? null);
   }, [profilePhotoUrl]);
-  // Refetch photo from Firestore on mount (fixes photo missing after onboarding when server had stale data)
+
   useEffect(() => {
     const uid = auth.currentUser?.uid;
     if (!uid) return;
     getStudentProfile(uid).then((p) => {
-      if (p?.profilePhotoUrl) setDisplayPhotoUrl((prev) => prev || (p.profilePhotoUrl ?? null));
+      if (p?.profilePhotoUrl) setDisplayPhotoUrl(p.profilePhotoUrl);
     });
   }, []);
 
-  async function handlePhotoChange(e: React.ChangeEvent<HTMLInputElement>) {
+  useEffect(() => {
+    if (!onboardingAnswers) return;
+    const o = onboardingAnswers;
+    const sat = o.satTotal ?? o.satScore;
+    const act = o.actComposite ?? o.actScore;
+    const grad = o.expectedGraduationYear ?? o.graduationYear;
+    
+    setForms({
+      firstName: o.firstName ?? "",
+      lastName: o.lastName ?? "",
+      gpa: o.gpa != null ? String(o.gpa) : "",
+      gradYear: grad != null ? String(grad) : "",
+      gradeLevel: o.gradeLevel ?? "",
+      sat: sat != null ? String(sat) : "",
+      act: act != null ? String(act) : "",
+      school: o.currentHighSchool ?? "",
+      city: o.city ?? "",
+      state: o.state ?? "",
+    });
+  }, [onboardingAnswers]);
+
+  const handlePhotoUpload = async (e: React.ChangeEvent<HTMLInputElement>) => {
     const file = e.target.files?.[0];
-    if (!file || !file.type.startsWith("image/")) {
-      toast({ title: "Invalid file", description: "Please choose an image file.", variant: "error" });
-      return;
-    }
+    if (!file) return;
     const uid = auth.currentUser?.uid;
-    if (!uid) {
-      router.push("/login?redirect=/app/profile");
-      return;
-    }
+    if (!uid) return;
+    
     setUploadingPhoto(true);
-    e.target.value = "";
     try {
-      const dataUrl = await new Promise<string>((resolve, reject) => {
-        const reader = new FileReader();
-        reader.onload = () => resolve(reader.result as string);
-        reader.onerror = reject;
+      const reader = new FileReader();
+      const dataUrl = await new Promise<string>((res) => {
+        reader.onload = () => res(reader.result as string);
         reader.readAsDataURL(file);
       });
       const url = await uploadProfilePhoto(uid, dataUrl);
       await setStudentProfile(uid, { profilePhotoUrl: url });
       setDisplayPhotoUrl(url);
-      toast({ title: "Photo updated", description: "Your profile photo has been saved." });
-      router.refresh();
+      toast({ title: "Success", description: "Profile photo updated." });
     } catch (err) {
-      console.error(err);
-      toast({ title: "Upload failed", description: "Could not update photo. Please try again.", variant: "error" });
+      toast({ title: "Error", description: "Upload failed.", variant: "error" });
     } finally {
       setUploadingPhoto(false);
     }
-  }
+  };
 
-  useEffect(() => {
-    setHeaderColorId(getStoredHeaderColor());
-  }, []);
-
-  useEffect(() => {
+  const handleSave = async () => {
     if (!onboardingAnswers) return;
-    const satDisplay = onboardingAnswers.satTotal ?? onboardingAnswers.satScore;
-    const actDisplay = onboardingAnswers.actComposite ?? onboardingAnswers.actScore;
-    const grad = onboardingAnswers.expectedGraduationYear ?? onboardingAnswers.graduationYear ?? null;
-    const base = {
-      gpa: onboardingAnswers.gpa != null ? String(onboardingAnswers.gpa) : "",
-      gradYear: grad != null ? String(grad) : "",
-      gradeLevel: onboardingAnswers.gradeLevel != null ? String(onboardingAnswers.gradeLevel) : "",
-      sat: satDisplay != null ? String(satDisplay) : "",
-      act: actDisplay != null ? String(actDisplay) : "",
-    };
-    setBasicForm(base);
-    setFullForm({
-      firstName: onboardingAnswers.firstName?.trim() ?? "",
-      lastName: onboardingAnswers.lastName?.trim() ?? "",
-      currentHighSchool: onboardingAnswers.currentHighSchool?.trim() ?? "",
-      city: onboardingAnswers.city?.trim() ?? "",
-      state: onboardingAnswers.state?.trim() ?? "",
-      ...base,
-    });
-  }, [onboardingAnswers]);
+    const uid = auth.currentUser?.uid;
+    if (!uid) return;
 
-  async function handleSaveBasics() {
-    if (!onboardingAnswers) return;
-    const user = auth.currentUser;
-    if (!user) {
-      toast({
-        title: "Sign in required",
-        description: "Please sign in again to update your profile.",
-        variant: "error",
-      });
-      router.push("/login?redirect=/app/profile");
-      return;
-    }
-
-    setSavingBasics(true);
+    setIsSaving(true);
     try {
-      const next: OnboardingDraft = { ...onboardingAnswers };
-      const gpa = basicForm.gpa.trim() ? Number(basicForm.gpa) : null;
-      const grad = basicForm.gradYear.trim() ? Number(basicForm.gradYear) : null;
-      const sat = basicForm.sat.trim() ? Number(basicForm.sat) : null;
-      const act = basicForm.act.trim() ? Number(basicForm.act) : null;
+      let next: OnboardingDraft;
 
-      next.gpa = gpa != null && !Number.isNaN(gpa) ? gpa : undefined;
-      next.expectedGraduationYear = grad != null && !Number.isNaN(grad) ? grad : undefined;
-      const gl = basicForm.gradeLevel.trim();
-      const validGradeLevels: GradeLevel[] = ["9", "10", "11", "12", "Gap Year", "Other"];
-      next.gradeLevel = gl && validGradeLevels.includes(gl as GradeLevel) ? (gl as GradeLevel) : undefined;
-      if (sat != null && !Number.isNaN(sat)) {
-        next.satTotal = sat;
-        next.satScore = sat;
+      if (drawerMode === "step" && editingStep) {
+        next = {
+          ...onboardingAnswers,
+          ...stepData
+        };
       } else {
-        next.satTotal = undefined;
-        next.satScore = undefined;
-      }
-      if (act != null && !Number.isNaN(act)) {
-        next.actComposite = act;
-        next.actScore = act;
-      } else {
-        next.actComposite = undefined;
-        next.actScore = undefined;
+        next = {
+          ...onboardingAnswers,
+          firstName: forms.firstName.trim() || undefined,
+          lastName: forms.lastName.trim() || undefined,
+          currentHighSchool: forms.school.trim() || undefined,
+          city: forms.city.trim() || undefined,
+          state: forms.state.trim() || undefined,
+          gpa: forms.gpa ? Number(forms.gpa) : undefined,
+          expectedGraduationYear: forms.gradYear ? Number(forms.gradYear) : undefined,
+          gradeLevel: forms.gradeLevel as GradeLevel || undefined,
+          satTotal: forms.sat ? Number(forms.sat) : undefined,
+          actComposite: forms.act ? Number(forms.act) : undefined,
+        };
       }
 
-      await persistOnboardingToFirestore(user.uid, next);
-      toast({
-        title: "Profile updated",
-        description: "Your academic information has been saved.",
+      await persistOnboardingToFirestore(uid, next);
+      toast({ 
+        title: "Profile Updated", 
+        description: "Your matches and AI score might have changed. Visit College Matching to refresh results.",
       });
-      setIsEditingBasics(false);
+      setDrawerMode(null);
+      setEditingStep(null);
       router.refresh();
     } catch (err) {
-      console.error(err);
-      toast({
-        title: "Update failed",
-        description: "Something went wrong while saving. Please try again.",
-        variant: "error",
-      });
+      toast({ title: "Error", description: "Could not save changes.", variant: "error" });
     } finally {
-      setSavingBasics(false);
+      setIsSaving(false);
     }
-  }
+  };
 
-  function handleHeaderColorChange(id: string) {
-    setHeaderColorId(id);
-    if (typeof window !== "undefined") window.localStorage.setItem(PROFILE_HEADER_COLOR_KEY, id);
-  }
+  const openStepEditor = (step: number) => {
+    setEditingStep(step);
+    setDrawerMode("step");
+    setStepData({ ...onboardingAnswers });
+  };
 
-  async function handleSaveFullQuestionnaire() {
-    if (!onboardingAnswers) return;
-    const user = auth.currentUser;
-    if (!user) {
-      toast({ title: "Sign in required", description: "Please sign in again.", variant: "error" });
-      router.push("/login?redirect=/app/profile");
-      return;
-    }
-    setSavingQuestionnaire(true);
-    try {
-      const next: OnboardingDraft = { ...onboardingAnswers };
-      next.firstName = fullForm.firstName.trim() || undefined;
-      next.lastName = fullForm.lastName.trim() || undefined;
-      next.currentHighSchool = fullForm.currentHighSchool.trim() || undefined;
-      next.city = fullForm.city.trim() || undefined;
-      next.state = fullForm.state.trim() || undefined;
-      const gpa = fullForm.gpa.trim() ? Number(fullForm.gpa) : null;
-      const grad = fullForm.gradYear.trim() ? Number(fullForm.gradYear) : null;
-      const sat = fullForm.sat.trim() ? Number(fullForm.sat) : null;
-      const act = fullForm.act.trim() ? Number(fullForm.act) : null;
-      next.gpa = gpa != null && !Number.isNaN(gpa) ? gpa : undefined;
-      next.expectedGraduationYear = grad != null && !Number.isNaN(grad) ? grad : undefined;
-      const gl = fullForm.gradeLevel.trim();
-      const validGradeLevels: GradeLevel[] = ["9", "10", "11", "12", "Gap Year", "Other"];
-      next.gradeLevel = gl && validGradeLevels.includes(gl as GradeLevel) ? (gl as GradeLevel) : undefined;
-      if (sat != null && !Number.isNaN(sat)) {
-        next.satTotal = sat;
-        next.satScore = sat;
-      } else {
-        next.satTotal = undefined;
-        next.satScore = undefined;
-      }
-      if (act != null && !Number.isNaN(act)) {
-        next.actComposite = act;
-        next.actScore = act;
-      } else {
-        next.actComposite = undefined;
-        next.actScore = undefined;
-      }
-      await persistOnboardingToFirestore(user.uid, next);
-      toast({ title: "Profile updated", description: "Your questionnaire answers have been saved." });
-      setShowEditQuestionnaire(false);
-      router.refresh();
-    } catch (err) {
-      console.error(err);
-      toast({ title: "Update failed", description: "Something went wrong. Please try again.", variant: "error" });
-    } finally {
-      setSavingQuestionnaire(false);
-    }
-  }
+  if (!onboardingAnswers) return null;
 
-  if (!hasAnyProfileData(onboardingAnswers)) {
-    return (
-      <div className="animate-in fade-in duration-300">
-        <GlassCard className="p-10 text-center" variant="indigo">
-          <div className="mx-auto flex h-20 w-20 items-center justify-center rounded-2xl bg-primary-100 text-primary-600">
-            <GraduationCap className="h-10 w-10" aria-hidden />
-          </div>
-          <h2 className="mt-6 text-xl font-bold text-text-primary">Complete your profile</h2>
-          <p className="mt-2 max-w-md mx-auto text-sm text-text-muted">
-            Your academic CV will appear here. Complete your onboarding to showcase your academics, goals, and preferences.
-          </p>
-          <Link
-            href="/app/profile"
-            className="mt-6 inline-flex items-center gap-2 rounded-xl bg-primary-500 px-5 py-2.5 text-sm font-medium text-white shadow-md transition-all hover:bg-primary-600 focus:outline-none focus:ring-2 focus:ring-primary-500/30"
-          >
-            Go to profile
-            <ChevronRight className="h-4 w-4" aria-hidden />
-          </Link>
-        </GlassCard>
-      </div>
-    );
-  }
-
-  const o = onboardingAnswers!;
-  const firstName = o.firstName?.trim() ?? "";
-  const lastName = o.lastName?.trim() ?? "";
-  const fullName = [firstName, lastName].filter(Boolean).join(" ") || "Student";
-  const initial = fullName ? fullName.replace(/\b(\w)/g, (_, c) => c).slice(0, 2).toUpperCase() : "?";
-  const gradYear = o.expectedGraduationYear ?? o.graduationYear ?? null;
-  const taglineParts = [
-    o.careerPathWhat?.trim(),
-    o.areasOfInterest?.[0],
-    o.currentHighSchool?.trim() ? `Class of ${gradYear ?? ""}` : null,
-  ].filter(Boolean);
-  const tagline = taglineParts.length > 0 ? taglineParts.join(" | ") : "Building my path to college";
+  const o = onboardingAnswers;
   const strength = computeProfileStrength(o);
+  const fullName = [forms.firstName, forms.lastName].filter(Boolean).join(" ") || "Student";
+  const initial = fullName.slice(0, 1).toUpperCase();
 
-  // Awards for cards (flatten by level)
-  const awardCards: { title: string; level: string; icon: typeof Star }[] = [];
-  const awardLevels = [
-    { key: "awardsSchool" as const, label: "School", icon: Star },
-    { key: "awardsState" as const, label: "State Level", icon: Award },
-    { key: "awardsNational" as const, label: "National Level", icon: Star },
-    { key: "awardsInternational" as const, label: "International", icon: Award },
-  ];
-  awardLevels.forEach(({ key, label, icon }) => {
-    const items = o[key];
-    if (items?.length)
-      items.forEach((a) => awardCards.push({ title: a.title, level: label, icon }));
-  });
-
-  const satDisplay = o.satTotal ?? o.satScore;
-  const actDisplay = o.actComposite ?? o.actScore;
-  const satPercent = satDisplay != null ? Math.min(99, 50 + Number(satDisplay) / 20) : null;
-  const apAvg = o.apAverageScore;
-  const apPercent = apAvg != null ? Math.min(99, apAvg * 20) : null;
+  const awardCards = (o.awardsConsolidated ?? []).slice(0, 4);
+  const activityCards = (o.activityTypes ?? []).slice(0, 4);
 
   return (
-    <div className="relative flex flex-col overflow-x-hidden">
-      {/* ——— Banner ——— */}
-      <section
-        className="relative h-72 sm:h-80 w-full flex items-end px-2 sm:px-4 lg:px-4 pb-8 sm:pb-10"
-        style={{
-          background: (() => {
-            const c = HEADER_COLORS.find((x) => x.id === headerColorId) ?? HEADER_COLORS[0];
-            return `linear-gradient(to right, ${c.from}, ${c.to})`;
-          })(),
-        }}
-      >
-        <div
-          className="absolute inset-0 opacity-20 pointer-events-none"
-          style={{
-            backgroundImage: "radial-gradient(circle at 2px 2px, rgba(255,255,255,0.15) 1px, transparent 0)",
-            backgroundSize: "24px 24px",
-          }}
-        />
-        <div className="relative flex items-end gap-6 sm:gap-8 w-full max-w-7xl mx-auto">
-          <div className="relative shrink-0 group">
-            <input
-              ref={photoInputRef}
-              type="file"
-              accept="image/*"
-              className="hidden"
-              onChange={handlePhotoChange}
-              aria-label="Upload profile photo"
-            />
-            <button
-              type="button"
-              onClick={() => photoInputRef.current?.click()}
-              disabled={uploadingPhoto}
-              className="relative size-28 sm:size-36 lg:size-40 rounded-full border-4 border-white shadow-2xl bg-white overflow-hidden focus:outline-none focus:ring-2 focus:ring-white focus:ring-offset-2 focus:ring-offset-transparent disabled:opacity-70 disabled:cursor-not-allowed"
-              aria-label="Update profile photo"
-            >
-              {displayPhotoUrl ? (
-                <img src={displayPhotoUrl} alt="" className="w-full h-full object-cover" referrerPolicy="no-referrer" />
-              ) : (
-                <span className="w-full h-full flex items-center justify-center text-2xl sm:text-3xl font-bold text-primary-600 bg-secondary-100">
-                  {initial}
-                </span>
-              )}
-              <span className="absolute inset-0 flex items-center justify-center bg-black/40 opacity-0 group-hover:opacity-100 transition-opacity rounded-full">
-                {uploadingPhoto ? (
-                  <span className="text-white text-xs font-medium">Uploading…</span>
-                ) : (
-                  <Camera className="size-8 sm:size-10 text-white" aria-hidden />
-                )}
-              </span>
-            </button>
-            <div className="absolute bottom-1 right-1 size-5 sm:size-6 bg-status-successText border-2 border-white rounded-full" aria-hidden />
-          </div>
-          <div className="flex-1 min-w-0 pb-2 sm:pb-4">
-            <h1 className="text-2xl sm:text-3xl lg:text-4xl font-extrabold text-white truncate">{fullName}</h1>
-            <p className="text-white/90 text-sm sm:text-base lg:text-lg mt-1 sm:mt-2 font-medium italic truncate">{tagline}</p>
-            <div className="flex flex-wrap gap-2 sm:gap-3 mt-3 sm:mt-4">
-              {o.gpa != null && (
-                <span className="bg-white/20 backdrop-blur-md border border-white/30 text-white px-3 sm:px-4 py-1.5 rounded-full text-xs sm:text-sm font-bold inline-flex items-center gap-1.5">
-                  <Star className="size-3.5 sm:size-4" aria-hidden />
-                  GPA: {o.gpa}
-                </span>
-              )}
-              {(satDisplay != null || actDisplay != null) && (
-                <span className="bg-white/20 backdrop-blur-md border border-white/30 text-white px-3 sm:px-4 py-1.5 rounded-full text-xs sm:text-sm font-bold inline-flex items-center gap-1.5">
-                  <ClipboardList className="size-3.5 sm:size-4" aria-hidden />
-                  {satDisplay != null && actDisplay != null ? `SAT: ${satDisplay} · ACT: ${actDisplay}` : satDisplay != null ? `SAT: ${satDisplay}` : `ACT: ${actDisplay}`}
-                </span>
-              )}
-              {gradYear != null && (
-                <span className="bg-primary-500 text-white px-3 sm:px-4 py-1.5 rounded-full text-xs sm:text-sm font-bold shadow-lg">
-                  Class of {gradYear}
-                </span>
-              )}
+    <div className="relative min-h-screen bg-[#F7F9FC] pb-20">
+      {/* V3 PREMIUM HEADER - COMPACT & MODERN */}
+      {/* ULTRA-PREMIUM V4 HEADER */}
+      <section className="relative w-full bg-[#050A18] pb-24 pt-20">
+        {/* Cinematic Background */}
+        <div className="absolute inset-0 z-0 overflow-hidden">
+          <div className="absolute inset-0 bg-gradient-to-br from-indigo-950/50 via-[#050A18] to-[#050A18]" />
+          <div className="absolute -top-20 -left-20 h-[600px] w-[600px] rounded-full bg-primary-600/10 blur-[140px] animate-pulse" />
+          <div className="absolute top-1/2 -right-20 h-[500px] w-[500px] rounded-full bg-violet-600/10 blur-[120px]" />
+          <div className="absolute inset-0 bg-[url('https://grainy-gradients.vercel.app/noise.svg')] opacity-[0.15] mix-blend-overlay" />
+        </div>
+
+        <div className="relative z-10 mx-auto max-w-7xl px-4 sm:px-6 lg:px-8">
+          <div className="flex flex-col items-center gap-12 lg:flex-row lg:items-end lg:justify-between">
+            
+            {/* Left: Dynamic Identity */}
+            <div className="flex flex-col items-center gap-10 lg:flex-row lg:items-center">
+              <motion.div 
+                initial={{ opacity: 0, scale: 0.8 }}
+                animate={{ opacity: 1, scale: 1 }}
+                className="relative group"
+              >
+                <div className="relative z-10 size-36 overflow-hidden rounded-[3rem] border-4 border-white/10 shadow-[0_0_50px_rgba(0,0,0,0.3)] transition-all duration-500 group-hover:scale-105 group-hover:border-primary-500/50 sm:size-44">
+                  {displayPhotoUrl ? (
+                    <img src={displayPhotoUrl} alt="" className="h-full w-full object-cover" />
+                  ) : (
+                    <div className="flex h-full w-full items-center justify-center bg-gradient-to-br from-primary-600 to-violet-700 text-5xl font-black text-white">
+                      {initial}
+                    </div>
+                  )}
+                </div>
+                {/* Visual Echoes */}
+                <div className="absolute -inset-4 rounded-[3.5rem] border border-primary-500/10 opacity-0 transition-all duration-700 group-hover:opacity-100 group-hover:scale-110" />
+                
+                <button 
+                  onClick={() => photoInputRef.current?.click()}
+                  className="absolute -bottom-2 -right-2 z-20 flex size-12 items-center justify-center rounded-2xl bg-white text-primary-600 shadow-2xl transition-all hover:scale-110 active:scale-95"
+                >
+                  <Camera className="size-6" />
+                </button>
+                <input type="file" ref={photoInputRef} className="hidden" accept="image/*" onChange={handlePhotoUpload} />
+              </motion.div>
+
+              <motion.div 
+                initial={{ opacity: 0, y: 30 }}
+                animate={{ opacity: 1, y: 0 }}
+                className="text-center lg:text-left"
+              >
+                <div className="mb-4 flex flex-wrap justify-center gap-2 lg:justify-start">
+                   <span className="rounded-full bg-primary-500/10 border border-primary-500/20 px-4 py-1.5 text-[10px] font-black uppercase tracking-widest text-primary-400 backdrop-blur-md">Academic Profile</span>
+                   <span className="rounded-full bg-white/5 border border-white/10 px-4 py-1.5 text-[10px] font-black uppercase tracking-widest text-slate-400 backdrop-blur-md">ID Verified</span>
+                </div>
+                <h1 className="text-4xl font-black tracking-tight text-white sm:text-7xl mb-6">
+                  {forms.firstName} <span className="bg-gradient-to-r from-primary-400 to-violet-400 bg-clip-text text-transparent">{forms.lastName}</span>
+                </h1>
+                <div className="flex flex-wrap justify-center gap-6 lg:justify-start">
+                   <div className="flex items-center gap-3">
+                      <div className="flex size-10 items-center justify-center rounded-xl bg-white/5 border border-white/10 backdrop-blur-sm">
+                         <School className="size-5 text-primary-400" />
+                      </div>
+                      <div className="text-left">
+                         <p className="text-[9px] font-black uppercase tracking-widest text-slate-500">Current School</p>
+                         <p className="text-sm font-bold text-white/90">{forms.school || "Your High School"}</p>
+                      </div>
+                   </div>
+                   <div className="flex items-center gap-3">
+                      <div className="flex size-10 items-center justify-center rounded-xl bg-white/5 border border-white/10 backdrop-blur-sm">
+                         <GraduationCap className="size-5 text-violet-400" />
+                      </div>
+                      <div className="text-left">
+                         <p className="text-[9px] font-black uppercase tracking-widest text-slate-500">Graduation Year</p>
+                         <p className="text-sm font-bold text-white/90">Class of {forms.gradYear || "2027"}</p>
+                      </div>
+                   </div>
+                </div>
+              </motion.div>
             </div>
-          </div>
-          <div className="hidden lg:block shrink-0 mb-4">
-            <div className="bg-white rounded-card p-5 shadow-2xl w-56 border border-bg-border">
-              <div className="flex justify-between items-center mb-2">
-                <span className="text-[10px] font-bold text-text-muted uppercase tracking-wider">Profile Completeness</span>
-                <span className="text-sm font-bold text-status-successText">{strength}%</span>
+
+            {/* Right: Score Visualizer */}
+            <motion.div
+              initial={{ opacity: 0, x: 40 }}
+              animate={{ opacity: 1, x: 0 }}
+              className="relative overflow-hidden rounded-[3.5rem] border border-white/10 bg-white/5 p-8 backdrop-blur-2xl shadow-[0_0_60px_rgba(0,0,0,0.5)] lg:min-w-[320px]"
+            >
+              <div className="absolute inset-0 bg-gradient-to-br from-primary-600/10 via-transparent to-violet-600/10" />
+              <div className="relative flex flex-col items-center gap-6">
+                 <ProfileStrengthRing percentage={strength} />
+                 <div className="text-center">
+                    <p className="text-[10px] font-black uppercase tracking-[0.3em] text-slate-500 mb-2">Readiness Index</p>
+                    <div className="flex items-center gap-3 justify-center">
+                       <div className="h-2 w-2 rounded-full bg-emerald-500 shadow-[0_0_10px_rgba(16,185,129,0.5)]" />
+                       <span className="text-sm font-black text-white">{strength}% Data Completed</span>
+                    </div>
+                 </div>
               </div>
-              <ProgressBar value={strength} max={100} barClassName="bg-status-successText" className="mb-2" />
-              <p className="text-xs text-text-secondary font-medium mb-4">Keep building! 🎯</p>
-              <div className="flex items-center gap-1.5 flex-wrap">
-                <span className="text-[10px] font-bold text-text-muted uppercase tracking-wider w-full flex items-center gap-1.5">
-                  <Palette className="size-3.5" aria-hidden />
-                  Header color
-                </span>
-                <div className="flex flex-wrap gap-1.5 mt-1">
-                  {HEADER_COLORS.map((c) => (
-                    <button
-                      key={c.id}
-                      type="button"
-                      onClick={() => handleHeaderColorChange(c.id)}
-                      className={cn(
-                        "size-6 rounded-full border-2 transition-all focus:outline-none focus:ring-2 focus:ring-white focus:ring-offset-2 focus:ring-offset-transparent",
-                        headerColorId === c.id ? "border-white shadow-lg scale-110" : "border-white/50 hover:border-white/80"
-                      )}
-                      style={{ background: `linear-gradient(135deg, ${c.from}, ${c.to})` }}
-                      aria-label={c.label}
-                      title={c.label}
-                    />
+            </motion.div>
+
+          </div>
+        </div>
+        
+        {/* Floating Master Navigation */}
+        <div className="absolute bottom-0 left-0 right-0 translate-y-1/2 z-50 flex justify-center px-4">
+           <div className="flex items-center gap-1.5 p-2 rounded-[2.5rem] bg-white shadow-[0_20px_50px_rgba(0,0,0,0.2)] border border-slate-100 backdrop-blur-2xl">
+             {[
+               { id: "overview", label: "Dashboard", icon: BarChart3 },
+               { id: "academic", label: "Academics", icon: GraduationCap },
+               { id: "compantic_card", label: "Identity Card", icon: Contact },
+               { id: "records", label: "Full Records", icon: List },
+             ].map((tab) => (
+               <button
+                 key={tab.id}
+                 onClick={() => setActiveTab(tab.id)}
+                 className={cn(
+                   "group relative flex items-center gap-2 px-8 py-3.5 rounded-[2rem] text-xs font-black transition-all",
+                   activeTab === tab.id 
+                     ? "bg-slate-900 text-white shadow-2xl scale-105" 
+                     : "text-slate-500 hover:bg-slate-50 hover:text-slate-900"
+                 )}
+               >
+                 <tab.icon className={cn("size-4 transition-transform group-hover:scale-125", activeTab === tab.id ? "text-primary-400" : "")} />
+                 {tab.label}
+                 {activeTab === tab.id && (
+                   <motion.div layoutId="tab-glow" className="absolute inset-0 rounded-[2rem] bg-primary-500/10 blur-xl" />
+                 )}
+               </button>
+             ))}
+           </div>
+        </div>
+      </section>
+
+      {/* BENTO GRID CONTENT */}
+      <main className="mx-auto mt-20 max-w-7xl px-4 sm:px-6 lg:px-8">
+        <AnimatePresence mode="wait">
+          {activeTab === "compantic_card" && (
+            <motion.div
+              key="compantic_card"
+              initial={{ opacity: 0, y: 20 }}
+              animate={{ opacity: 1, y: 0 }}
+              exit={{ opacity: 0, y: 20 }}
+              className="flex flex-col items-center justify-center py-12"
+            >
+              <div className="relative w-full max-w-4xl group">
+                {/* ID Card Outer Glow */}
+                <div
+                  data-export-hide-glow="true"
+                  className="absolute -inset-1 rounded-[3rem] bg-gradient-to-r from-primary-600 via-violet-600 to-amber-400 opacity-20 blur-3xl transition duration-1000 group-hover:opacity-40"
+                />
+                
+                <div 
+                  ref={cardRef}
+                  className="relative aspect-[1.8/1] w-full overflow-hidden rounded-[2.5rem] border border-white/40 bg-slate-900 shadow-2xl transition-all duration-700 sm:aspect-[1.586/1]"
+                >
+                  {/* Premium Background Elements */}
+                  <div className="absolute inset-0 bg-[radial-gradient(circle_at_top_right,rgba(var(--primary-rgb),0.15),transparent_50%)]" />
+                  <div className="absolute inset-0 bg-[radial-gradient(circle_at_bottom_left,rgba(139,92,246,0.1),transparent_50%)]" />
+                  <div className="absolute inset-0 opacity-[0.05] mix-blend-overlay grayscale invert" style={{ backgroundImage: "radial-gradient(circle, #fff 1px, transparent 1px)", backgroundSize: "24px 24px" }} />
+                  
+                  {/* Card Content Grid */}
+                  <div className="relative flex h-full p-10 sm:p-14">
+                    {/* Left Section: Info & Stats */}
+                    <div className="flex flex-1 flex-col">
+                      {/* Header */}
+                      <div className="flex items-center gap-4">
+                        <div className="flex h-14 w-14 items-center justify-center rounded-2xl bg-white/5 shadow-inner ring-1 ring-white/10 backdrop-blur-xl">
+                          <LogoIcon className="h-7 w-7 text-white" />
+                        </div>
+                        <div>
+                          <h1 className="text-2xl font-black tracking-tight text-white">Compantic Card</h1>
+                          <p className="text-[10px] font-black uppercase tracking-[0.4em] text-primary-400">Verified Academic Identity</p>
+                        </div>
+                      </div>
+
+                      {/* Main Identity */}
+                      <div className="mt-12">
+                        <h2 className="text-4xl font-black tracking-tighter text-white sm:text-6xl">{fullName}</h2>
+                        <div className="mt-4 flex items-center gap-3 text-slate-400">
+                          <MapPin className="size-4 text-primary-500" />
+                          <span className="text-sm font-black uppercase tracking-widest">{forms.city}, {forms.state}</span>
+                        </div>
+                      </div>
+
+                      {/* Stats Grid */}
+                      <div className="mt-auto grid grid-cols-3 gap-10">
+                        <div className="space-y-1">
+                          <p className="text-[10px] font-black uppercase tracking-widest text-slate-500">Academic GPA</p>
+                          <p className="text-2xl font-black text-white">{forms.gpa || "N/A"}</p>
+                        </div>
+                        <div className="space-y-1">
+                          <p className="text-[10px] font-black uppercase tracking-widest text-slate-500">Test Scores</p>
+                          <p className="text-2xl font-black text-white">{forms.sat || forms.act || "—"}</p>
+                        </div>
+                        <div className="space-y-1">
+                          <p className="text-[10px] font-black uppercase tracking-widest text-slate-500">System Rank</p>
+                          <p className="text-2xl font-black text-amber-400 italic">#{realRank ? String(realRank).padStart(2, '0') : "—"}</p>
+                        </div>
+                      </div>
+                    </div>
+
+                    {/* Right Section: Large Photo & QR */}
+                    <div className="flex w-64 flex-col items-center justify-between sm:w-80">
+                      <div className="relative">
+                        {/* Photo Container */}
+                        <div className="size-48 overflow-hidden rounded-[3rem] border-[6px] border-white/5 shadow-2xl sm:size-64">
+                          {displayPhotoUrl ? (
+                            <img 
+                              id="compantic-id-photo"
+                              src={displayPhotoUrl} 
+                              alt="" 
+                              className="h-full w-full object-cover" 
+                            />
+                          ) : (
+                            <div className="flex h-full w-full items-center justify-center bg-gradient-to-br from-slate-800 to-slate-900 text-6xl font-black text-white/20">
+                              {initial}
+                            </div>
+                          )}
+                        </div>
+                        {/* Security Badge */}
+                        <div className="absolute -bottom-4 -right-4 flex h-14 w-14 items-center justify-center rounded-2xl bg-white text-slate-900 shadow-2xl ring-4 ring-slate-900">
+                          <Shield className="size-7" />
+                        </div>
+                      </div>
+
+                      {/* Additional Details & ID Area */}
+                      <div className="mt-8 flex w-full items-end justify-between">
+                         <div className="space-y-3">
+                            <div>
+                               <p className="text-[8px] font-black uppercase tracking-widest text-slate-500">Grade Level</p>
+                               <p className="text-sm font-black text-white">{forms.gradeLevel}th Grade</p>
+                            </div>
+                            <div>
+                               <p className="text-[8px] font-black uppercase tracking-widest text-slate-500">Nationality</p>
+                               <p className="text-sm font-black text-white">{o.country?.slice(0, 15) || "USA"}</p>
+                            </div>
+                         </div>
+                         
+                         <div className="text-right">
+                            <p className="text-[8px] font-black uppercase tracking-widest text-slate-500 mb-1">Issue Date</p>
+                            <p className="text-[10px] font-bold text-white mb-3">{new Date().toLocaleDateString("en-US", { month: "short", day: "2-digit", year: "numeric" })}</p>
+                            <div className="rounded-lg bg-white/10 px-3 py-1.5 backdrop-blur-sm border border-white/10">
+                               <p className="text-[7px] font-black uppercase tracking-[0.2em] text-primary-400">STUDENT ID</p>
+                               <p className="text-[10px] font-black text-white">#{studentId}</p>
+                            </div>
+                         </div>
+                      </div>
+                    </div>
+                  </div>
+
+                  {/* Decorative Aesthetic Strip */}
+                  <div className="absolute inset-y-0 right-0 w-2 bg-gradient-to-b from-primary-600 via-violet-600 to-amber-400 opacity-80" />
+                </div>
+              </div>
+              
+              <div className="mt-12 flex flex-col items-center gap-6">
+                <button
+                  onClick={downloadCard}
+                  className="group relative flex items-center gap-3 rounded-2xl bg-slate-900 px-10 py-5 text-sm font-black text-white shadow-2xl transition-all hover:scale-105 active:scale-95"
+                >
+                  <div className="absolute -inset-1 rounded-2xl bg-gradient-to-r from-primary-600 to-violet-600 opacity-20 blur transition group-hover:opacity-50" />
+                  <GraduationCap className="size-5 text-primary-400" />
+                  Download Compantic Card (PDF)
+                </button>
+                <p className="max-w-md text-center text-sm font-medium text-slate-500 leading-relaxed">
+                  This card represents your verified academic status within the Compantic ecosystem.
+                  The QR code can be used for instant verification by academic counselors.
+                </p>
+              </div>
+            </motion.div>
+          )}
+
+          {activeTab === "overview" && (
+            <motion.div
+              key="overview"
+              initial={{ opacity: 0, y: 20 }}
+              animate={{ opacity: 1, y: 0 }}
+              exit={{ opacity: 0 }}
+              className="grid grid-cols-12 gap-6"
+            >
+              {/* Tile: Hero Stats */}
+              <BentoCard 
+                title="Academic Standing" 
+                icon={BarChart3} 
+                className="col-span-12 lg:col-span-8"
+              >
+                <div className="grid grid-cols-1 gap-6 sm:grid-cols-3">
+                  <div className="rounded-3xl border border-slate-100 bg-slate-50/50 p-6 transition-transform hover:scale-[1.03]">
+                    <p className="text-[10px] font-black uppercase tracking-widest text-slate-400">GPA</p>
+                    <p className="mt-2 text-5xl font-black tracking-tighter text-slate-900">{forms.gpa || "N/A"}</p>
+                    <div className="mt-4 h-1.5 w-full rounded-full bg-slate-200 overflow-hidden">
+                      <div className="h-full bg-primary-600 rounded-full" style={{ width: `${Math.min(100, (Number(forms.gpa)||0)*25)}%` }} />
+                    </div>
+                  </div>
+                  <div className="rounded-3xl border border-slate-100 bg-slate-50/50 p-6 transition-transform hover:scale-[1.03]">
+                    <p className="text-[10px] font-black uppercase tracking-widest text-slate-400">SAT Score</p>
+                    <p className="mt-2 text-5xl font-black tracking-tighter text-slate-900">{forms.sat || "—"}</p>
+                    <p className="mt-2 text-xs font-bold text-primary-600">{forms.sat ? "Above average" : "Pending"}</p>
+                  </div>
+                  <div className="rounded-3xl border border-slate-100 bg-slate-50/50 p-6 transition-transform hover:scale-[1.03]">
+                    <p className="text-[10px] font-black uppercase tracking-widest text-slate-400">ACT Comp</p>
+                    <p className="mt-2 text-5xl font-black tracking-tighter text-slate-900">{forms.act || "—"}</p>
+                    <p className="mt-2 text-xs font-bold text-violet-600">{forms.act ? "Target reached" : "No record"}</p>
+                  </div>
+                </div>
+              </BentoCard>
+
+              {/* Tile: Location Card */}
+              <div className="col-span-12 lg:col-span-4 rounded-[2rem] border border-white/60 bg-slate-900 p-8 text-white shadow-2xl backdrop-blur-3xl">
+                <div className="flex items-center gap-4">
+                  <div className="flex size-14 items-center justify-center rounded-2xl bg-white/10 ring-1 ring-white/20">
+                    <MapPin className="size-7 text-primary-400" />
+                  </div>
+                  <div>
+                    <h3 className="text-xl font-black">Identity</h3>
+                    <p className="text-sm text-slate-400">{forms.city}, {forms.state}</p>
+                  </div>
+                </div>
+                <div className="mt-12 space-y-6">
+                  {[
+                    { label: "Grade Level", value: `${forms.gradeLevel}th Grade`, icon: Star },
+                    { label: "Nationality", value: o.country || "United States", icon: Users },
+                    { label: "Interest", value: o.areasOfInterest?.[0] || "Exploring", icon: CheckSquare },
+                  ].map((item, idx) => (
+                    <div key={idx} className="flex items-center justify-between border-b border-white/5 pb-4 last:border-0 last:pb-0">
+                      <div className="flex items-center gap-3">
+                        <item.icon className="size-4 text-slate-500" />
+                        <span className="text-sm font-medium text-slate-400">{item.label}</span>
+                      </div>
+                      <span className="text-sm font-black">{item.value}</span>
+                    </div>
                   ))}
                 </div>
               </div>
-            </div>
-          </div>
-        </div>
-      </section>
 
-      {/* Mobile / tablet profile completeness + header color */}
-      <section className="lg:hidden max-w-7xl mx-auto w-full px-2 sm:px-4 lg:px-4 mt-4">
-        <div className="bg-white rounded-card p-4 shadow-soft border border-bg-border">
-          <div className="flex justify-between items-center mb-1">
-            <span className="text-[11px] font-semibold text-text-muted uppercase tracking-wider">
-              Profile Completeness
-            </span>
-            <span className="text-sm font-bold text-status-successText">{strength}%</span>
-          </div>
-          <ProgressBar value={strength} max={100} barClassName="bg-status-successText" className="mb-3" />
-          <p className="text-[10px] font-semibold text-text-muted uppercase tracking-wider mb-1.5">Header color</p>
-          <div className="flex flex-wrap gap-2">
-            {HEADER_COLORS.map((c) => (
-              <button
-                key={c.id}
-                type="button"
-                onClick={() => handleHeaderColorChange(c.id)}
-                className={cn(
-                  "size-7 rounded-full border-2 transition-all",
-                  headerColorId === c.id ? "border-primary-500 shadow-md scale-110" : "border-bg-border"
-                )}
-                style={{ background: `linear-gradient(135deg, ${c.from}, ${c.to})` }}
-                aria-label={c.label}
-                title={c.label}
-              />
-            ))}
-          </div>
-        </div>
-      </section>
-
-      {/* ——— Main 3-column ——— */}
-      <main className="max-w-7xl mx-auto w-full px-2 sm:px-4 lg:px-4 py-6 sm:py-8 grid grid-cols-1 lg:grid-cols-12 gap-5 lg:gap-6 items-start">
-        {/* Left nav — only on large screens */}
-        <aside className="hidden lg:block lg:col-span-2 sticky top-24 space-y-1">
-          <nav className="flex flex-col gap-1" aria-label="Profile sections">
-            {navItems.map(({ id, label, icon: Icon }) => (
-              <a
-                key={id}
-                href={`#${id}`}
-                onClick={(e) => { e.preventDefault(); setActiveSection(id); document.getElementById(id)?.scrollIntoView({ behavior: "smooth" }); }}
-                className={cn(
-                  "flex items-center gap-3 px-4 py-3 rounded-button transition-all",
-                  activeSection === id ? "bg-primary-500/10 text-primary-600 font-bold" : "text-text-secondary hover:bg-secondary-100 font-medium"
-                )}
-              >
-                <Icon className="size-5 shrink-0" aria-hidden />
-                <span className="text-sm">{label}</span>
-              </a>
-            ))}
-          </nav>
-        </aside>
-
-        {/* Center content */}
-        <div className="lg:col-span-7 space-y-6 sm:space-y-8">
-          {/* Academic GPA & Standing */}
-          <section id="academic" className="scroll-mt-24 bg-bg-card rounded-card p-6 shadow-soft border border-bg-border">
-          <div className="flex flex-wrap items-center justify-between gap-3 mb-6">
-              <h3 className="text-lg font-bold flex items-center gap-2 text-text-primary">
-                <BarChart3 className="size-5 text-primary-500" aria-hidden />
-                Academic GPA & Standing
-              </h3>
-              <div className="flex items-center gap-2">
-                <button
-                  type="button"
-                  onClick={() => setIsEditingBasics((v) => !v)}
-                  className="inline-flex items-center rounded-button border border-primary-500/40 px-3 py-1.5 text-xs font-semibold text-primary-600 hover:bg-primary-50 transition-colors"
-                >
-                  {isEditingBasics ? "Cancel editing" : "Edit basics"}
-                </button>
-                <button
-                  type="button"
-                  onClick={() => {
-                    setShowEditQuestionnaire(true);
-                    setShowFullQuestionnaire(false);
-                    document.getElementById("onboarding")?.scrollIntoView({ behavior: "smooth" });
-                  }}
-                  className="inline-flex items-center gap-1.5 rounded-button border border-bg-border px-3 py-1.5 text-xs font-semibold text-text-secondary hover:bg-secondary-100 transition-colors"
-                >
-                  <Edit3 className="size-3.5" aria-hidden />
-                  Edit full profile
-                </button>
-                <button
-                  type="button"
-                  onClick={() => {
-                    setShowFullQuestionnaire(true);
-                    setShowEditQuestionnaire(false);
-                    document.getElementById("onboarding")?.scrollIntoView({ behavior: "smooth" });
-                  }}
-                  className="hidden sm:inline-flex items-center rounded-button border border-bg-border px-3 py-1.5 text-xs font-semibold text-text-secondary hover:bg-secondary-100 transition-colors"
-                >
-                  Show all answers
-                </button>
-              </div>
-          </div>
-          {isEditingBasics ? (
-            <div className="grid grid-cols-1 sm:grid-cols-3 gap-4 sm:gap-6">
-              <div className="p-4 rounded-button bg-bg-main border border-bg-border">
-                <p className="text-xs text-text-muted font-bold uppercase mb-1">Current GPA</p>
-                <Input
-                  type="number"
-                  step="0.01"
-                  value={basicForm.gpa}
-                  onChange={(e) => setBasicForm((f) => ({ ...f, gpa: e.target.value }))}
-                  placeholder="e.g. 3.7"
-                  className="mt-1"
-                />
-              </div>
-              <div className="p-4 rounded-button bg-bg-main border border-bg-border">
-                <p className="text-xs text-text-muted font-bold uppercase mb-1">Graduation Year</p>
-                <Input
-                  type="number"
-                  value={basicForm.gradYear}
-                  onChange={(e) => setBasicForm((f) => ({ ...f, gradYear: e.target.value }))}
-                  placeholder="e.g. 2026"
-                  className="mt-1"
-                />
-              </div>
-              <div className="p-4 rounded-button bg-bg-main border border-bg-border">
-                <p className="text-xs text-text-muted font-bold uppercase mb-1">Grade Level</p>
-                <Input
-                  type="text"
-                  value={basicForm.gradeLevel}
-                  onChange={(e) => setBasicForm((f) => ({ ...f, gradeLevel: e.target.value }))}
-                  placeholder="e.g. 11"
-                  className="mt-1"
-                />
-              </div>
-              <div className="p-4 rounded-button bg-bg-main border border-bg-border sm:col-span-2">
-                <p className="text-xs text-text-muted font-bold uppercase mb-1">SAT Total</p>
-                <Input
-                  type="number"
-                  value={basicForm.sat}
-                  onChange={(e) => setBasicForm((f) => ({ ...f, sat: e.target.value }))}
-                  placeholder="e.g. 1450"
-                  className="mt-1"
-                />
-              </div>
-              <div className="p-4 rounded-button bg-bg-main border border-bg-border">
-                <p className="text-xs text-text-muted font-bold uppercase mb-1">ACT Composite</p>
-                <Input
-                  type="number"
-                  value={basicForm.act}
-                  onChange={(e) => setBasicForm((f) => ({ ...f, act: e.target.value }))}
-                  placeholder="e.g. 32"
-                  className="mt-1"
-                />
-              </div>
-              <div className="sm:col-span-3 flex justify-end gap-3">
-                <button
-                  type="button"
-                  onClick={() => setIsEditingBasics(false)}
-                  className="inline-flex items-center rounded-button border border-bg-border px-4 py-2 text-xs font-semibold text-text-secondary hover:bg-secondary-100 transition-colors"
-                >
-                  Cancel
-                </button>
-                <button
-                  type="button"
-                  disabled={savingBasics}
-                  onClick={handleSaveBasics}
-                  className="inline-flex items-center rounded-button bg-primary-500 px-4 py-2 text-xs font-semibold text-white shadow-soft hover:bg-primary-600 disabled:opacity-60 disabled:cursor-not-allowed transition-colors"
-                >
-                  {savingBasics ? "Saving..." : "Save changes"}
-                </button>
-              </div>
-            </div>
-          ) : (
-            <div className="grid grid-cols-1 sm:grid-cols-3 gap-4 sm:gap-6">
-              <div className="p-4 rounded-button bg-bg-main border border-bg-border">
-                <p className="text-xs text-text-muted font-bold uppercase mb-1">Current GPA</p>
-                <p className="text-2xl sm:text-3xl font-black text-text-primary">{o.gpa ?? "—"}</p>
-              </div>
-              <div className="p-4 rounded-button bg-bg-main border border-bg-border">
-                <p className="text-xs text-text-muted font-bold uppercase mb-1">Graduation Year</p>
-                <p className="text-2xl sm:text-3xl font-black text-text-primary">{gradYear ?? "—"}</p>
-              </div>
-              <div className="p-4 rounded-button bg-bg-main border border-bg-border">
-                <p className="text-xs text-text-muted font-bold uppercase mb-1">Grade Level</p>
-                <p className="text-lg sm:text-xl font-black text-text-primary">{o.gradeLevel ?? "—"}</p>
-              </div>
-            </div>
-          )}
-          </section>
-
-          {/* Standardized Test Dashboard */}
-          <section id="tests" className="scroll-mt-24 bg-bg-card rounded-card p-6 shadow-soft border border-bg-border">
-            <div className="flex items-center justify-between mb-6">
-              <h3 className="text-lg font-bold flex items-center gap-2 text-text-primary">
-                <CheckSquare className="size-5 text-primary-500" aria-hidden />
-                Standardized Test Dashboard
-              </h3>
-            </div>
-            <div className="space-y-6">
-              {satDisplay != null && (
-                <div>
-                  <div className="flex justify-between items-center mb-2">
-                    <p className="text-sm font-bold text-text-primary">SAT Score: {satDisplay}</p>
-                    {satPercent != null && <p className="text-xs font-bold text-primary-500">{Math.round(satPercent)}th Percentile</p>}
-                  </div>
-                  <div className="w-full bg-secondary-200 h-3 rounded-full overflow-hidden">
-                    <div className="bg-primary-500 h-full rounded-full transition-[width]" style={{ width: `${satPercent ?? 0}%` }} />
-                  </div>
+              {/* Tile: Honors / Awards */}
+              <div className="col-span-12 rounded-[2.5rem] bg-gradient-to-br from-violet-600 to-indigo-700 p-8 text-white shadow-2xl">
+                <div className="flex items-center justify-between mb-8">
+                  <h3 className="flex items-center gap-3 text-xl font-black">
+                    <Trophy className="size-6" />
+                    Achievements & Recognitions
+                  </h3>
+                  <Award className="size-6 text-white/20" />
                 </div>
-              )}
-              {actDisplay != null && (
-                <div>
-                  <div className="flex justify-between items-center mb-2">
-                    <p className="text-sm font-bold text-text-primary">ACT Score: {actDisplay}</p>
-                    <p className="text-xs font-bold text-primary-500">—</p>
-                  </div>
-                  <div className="w-full bg-secondary-200 h-3 rounded-full overflow-hidden">
-                    <div className="bg-primary-500 h-full rounded-full" style={{ width: "85%" }} />
-                  </div>
-                </div>
-              )}
-              {apAvg != null && (
-                <div>
-                  <div className="flex justify-between items-center mb-2">
-                    <p className="text-sm font-bold text-text-primary">AP Exams (Avg): {apAvg}</p>
-                    {apPercent != null && <p className="text-xs font-bold text-primary-500">{Math.round(apPercent)}th Percentile</p>}
-                  </div>
-                  <div className="w-full bg-secondary-200 h-3 rounded-full overflow-hidden">
-                    <div className="bg-primary-500 h-full rounded-full" style={{ width: `${apPercent ?? 0}%` }} />
-                  </div>
-                </div>
-              )}
-              {!satDisplay && !actDisplay && !apAvg && (
-                <p className="text-sm text-text-muted">Add test scores in your profile to see your dashboard.</p>
-              )}
-              <div className="mt-4 p-4 rounded-button bg-status-warningBg border border-status-warningText/20 flex items-start gap-3">
-                <Lightbulb className="size-5 text-status-warningText shrink-0 mt-0.5" aria-hidden />
-                <div>
-                  <p className="text-sm font-semibold text-status-warningText">Retake Recommendation</p>
-                  <p className="text-xs text-text-secondary mt-1">
-                    Consider retaking the SAT or ACT if you believe you can improve. Many schools superscore.
-                  </p>
-                </div>
-              </div>
-            </div>
-          </section>
-
-          {/* Awards & Honors */}
-          {awardCards.length > 0 && (
-            <section id="achievements" className="scroll-mt-24">
-              <div className="flex items-center justify-between mb-4">
-                <h3 className="text-lg font-bold flex items-center gap-2 text-text-primary">
-                  <Award className="size-5 text-primary-500" aria-hidden />
-                  Awards & Honors
-                </h3>
-              </div>
-              <div className="grid grid-cols-1 sm:grid-cols-2 gap-4">
-                {awardCards.slice(0, 6).map((a, i) => {
-                  const AwardIcon = a.icon;
-                  return (
-                    <div key={i} className="p-5 bg-bg-card border border-bg-border rounded-card shadow-soft">
-                      <AwardIcon className="size-5 text-primary-500 mb-2" aria-hidden />
-                      <p className="font-bold text-text-primary">{a.title}</p>
-                      <p className="text-xs text-text-muted mt-1">{a.level}</p>
+                <div className="grid grid-cols-1 gap-4 sm:grid-cols-2 lg:grid-cols-3">
+                  {awardCards.length === 0 ? (
+                    <div className="col-span-full py-12 text-center text-white/40">
+                      <Star className="mx-auto size-8 opacity-20" />
+                      <p className="mt-4 text-sm font-bold">Awards will appear here</p>
                     </div>
-                  );
-                })}
-              </div>
-            </section>
-          )}
-
-          {/* Extracurricular Commitment */}
-          {hasExtracurricularsData(o) && (o.activityTypes?.length ?? 0) > 0 && (
-            <section id="activities" className="scroll-mt-24 bg-bg-card rounded-card p-6 shadow-soft border border-bg-border">
-              <h3 className="text-lg font-bold flex items-center gap-2 mb-8 text-text-primary">
-                <Calendar className="size-5 text-primary-500" aria-hidden />
-                Extracurricular Commitment
-              </h3>
-              <div className="relative space-y-8 pb-4">
-                <div className="absolute left-[39px] top-0 bottom-0 w-0.5 bg-secondary-200 rounded-full" aria-hidden />
-                {o.activityTypes!.slice(0, 4).map((a, i) => {
-                  const years = a.weeksParticipated != null ? Math.round(a.weeksParticipated / 52) : 1;
-                  const t = (a.type ?? "").toLowerCase();
-                  const Icon = t.includes("sport") ? Award : t.includes("volunteer") || t.includes("community") ? Heart : t.includes("science") || t.includes("research") ? FlaskConical : Megaphone;
-                  return (
-                    <div key={i} className="relative flex gap-6">
-                      <div className="z-10 size-16 sm:size-20 shrink-0 bg-primary-500/10 rounded-button flex items-center justify-center border-2 border-bg-card">
-                        <Icon className="size-6 sm:size-8 text-primary-500" aria-hidden />
-                      </div>
-                      <div className="flex-1 min-w-0">
-                        <div className="flex flex-wrap justify-between items-center gap-2 mb-1">
-                          <h4 className="font-bold text-text-primary">{a.type}</h4>
-                          <span className="text-xs font-bold px-2 py-0.5 bg-secondary-200 rounded text-text-muted">{years} Year{years !== 1 ? "s" : ""}</span>
+                  ) : (
+                    awardCards.map((a, i) => (
+                      <div key={i} className="flex items-center gap-4 rounded-2xl border border-white/20 bg-white/10 p-4 transition-transform hover:translate-x-2">
+                        <Star className="size-5 text-amber-400 shrink-0" />
+                        <div>
+                          <p className="text-sm font-black leading-tight">{a.title}</p>
+                          <p className="text-[10px] font-bold text-white/50 uppercase tracking-widest">{a.level}</p>
                         </div>
-                        <div className="flex gap-1 mb-3">
-                          {Array.from({ length: 4 }).map((_, j) => (
-                            <div
-                              key={j}
-                              className={cn("h-1.5 flex-1 rounded-full", j < years ? "bg-primary-500" : "bg-secondary-200")}
-                            />
-                          ))}
-                        </div>
-                        {(a.weeksParticipated != null || a.hoursPerWeek != null) && (
-                          <p className="text-xs text-text-muted">
-                            {a.weeksParticipated != null && `${a.weeksParticipated} weeks`}
-                            {a.weeksParticipated != null && a.hoursPerWeek != null && " · "}
-                            {a.hoursPerWeek != null && `${a.hoursPerWeek} hr/wk`}
-                          </p>
-                        )}
                       </div>
-                    </div>
-                  );
-                })}
-              </div>
-            </section>
-          )}
-
-          <section id="college-list" className="scroll-mt-24 bg-bg-card rounded-card p-6 shadow-soft border border-bg-border">
-            <h3 className="text-lg font-bold flex items-center gap-2 text-text-primary">
-              <List className="size-5 text-primary-500" aria-hidden />
-              College List
-            </h3>
-            <Link href="/app/colleges" className="mt-2 inline-flex items-center gap-2 text-sm font-medium text-primary-500 hover:underline">
-              View your college list
-              <ChevronRight className="size-4" aria-hidden />
-            </Link>
-          </section>
-
-          {onboardingAnswers && (
-            <section id="onboarding" className="scroll-mt-24">
-              <div className="bg-bg-card rounded-card border border-bg-border shadow-soft">
-                <div className="flex flex-wrap items-center justify-between gap-3 px-6 py-4 border-b border-bg-border">
-                  <div>
-                    <h3 className="text-sm font-bold text-text-primary flex items-center gap-2">
-                      <ClipboardList className="size-4 text-primary-500" aria-hidden />
-                      Full questionnaire overview
-                    </h3>
-                    <p className="text-xs text-text-muted mt-0.5">
-                      A condensed view of all answers. Expand or edit without leaving this page.
-                    </p>
-                  </div>
-                  <div className="flex items-center gap-2">
-                    <button
-                      type="button"
-                      onClick={() => setShowEditQuestionnaire((v) => !v)}
-                      className="inline-flex items-center gap-1.5 rounded-button border border-primary-500/40 px-3 py-1.5 text-xs font-semibold text-primary-600 hover:bg-primary-50 transition-colors"
-                    >
-                      <Edit3 className="size-3.5" aria-hidden />
-                      {showEditQuestionnaire ? "Cancel edit" : "Edit"}
-                    </button>
-                    <button
-                      type="button"
-                      onClick={() => setShowFullQuestionnaire((v) => !v)}
-                      className="inline-flex items-center rounded-button border border-bg-border px-3 py-1.5 text-xs font-semibold text-text-secondary hover:bg-secondary-100 transition-colors"
-                    >
-                      {showFullQuestionnaire ? "Hide details" : "Show all answers"}
-                      <ChevronRight
-                        className={cn(
-                          "ml-1 h-3.5 w-3.5 transition-transform",
-                          showFullQuestionnaire ? "rotate-90" : ""
-                        )}
-                        aria-hidden
-                      />
-                    </button>
-                  </div>
+                    ))
+                  )}
                 </div>
-                {showEditQuestionnaire && (
-                  <div className="px-4 py-4 sm:px-6 sm:py-5 border-b border-bg-border bg-bg-main/50">
-                    <p className="text-xs font-semibold text-text-muted uppercase tracking-wider mb-4">Edit all your profile data below.</p>
-                    <div className="grid grid-cols-1 sm:grid-cols-2 lg:grid-cols-3 gap-4">
-                      <div>
-                        <label className="text-[11px] font-semibold uppercase text-text-muted block mb-1">First name</label>
-                        <Input
-                          value={fullForm.firstName}
-                          onChange={(e) => setFullForm((f) => ({ ...f, firstName: e.target.value }))}
-                          placeholder="First name"
-                          className="text-sm"
-                        />
-                      </div>
-                      <div>
-                        <label className="text-[11px] font-semibold uppercase text-text-muted block mb-1">Last name</label>
-                        <Input
-                          value={fullForm.lastName}
-                          onChange={(e) => setFullForm((f) => ({ ...f, lastName: e.target.value }))}
-                          placeholder="Last name"
-                          className="text-sm"
-                        />
-                      </div>
-                      <div className="sm:col-span-2">
-                        <label className="text-[11px] font-semibold uppercase text-text-muted block mb-1">High school</label>
-                        <Input
-                          value={fullForm.currentHighSchool}
-                          onChange={(e) => setFullForm((f) => ({ ...f, currentHighSchool: e.target.value }))}
-                          placeholder="Current high school"
-                          className="text-sm"
-                        />
-                      </div>
-                      <div>
-                        <label className="text-[11px] font-semibold uppercase text-text-muted block mb-1">City</label>
-                        <Input
-                          value={fullForm.city}
-                          onChange={(e) => setFullForm((f) => ({ ...f, city: e.target.value }))}
-                          placeholder="City"
-                          className="text-sm"
-                        />
-                      </div>
-                      <div>
-                        <label className="text-[11px] font-semibold uppercase text-text-muted block mb-1">State / Region</label>
-                        <Input
-                          value={fullForm.state}
-                          onChange={(e) => setFullForm((f) => ({ ...f, state: e.target.value }))}
-                          placeholder="State"
-                          className="text-sm"
-                        />
-                      </div>
-                      <div>
-                        <label className="text-[11px] font-semibold uppercase text-text-muted block mb-1">GPA</label>
-                        <Input
-                          type="number"
-                          step="0.01"
-                          value={fullForm.gpa}
-                          onChange={(e) => setFullForm((f) => ({ ...f, gpa: e.target.value }))}
-                          placeholder="3.9"
-                          className="text-sm"
-                        />
-                      </div>
-                      <div>
-                        <label className="text-[11px] font-semibold uppercase text-text-muted block mb-1">Graduation year</label>
-                        <Input
-                          type="number"
-                          value={fullForm.gradYear}
-                          onChange={(e) => setFullForm((f) => ({ ...f, gradYear: e.target.value }))}
-                          placeholder="2027"
-                          className="text-sm"
-                        />
-                      </div>
-                      <div>
-                        <label className="text-[11px] font-semibold uppercase text-text-muted block mb-1">Grade level</label>
-                        <Input
-                          value={fullForm.gradeLevel}
-                          onChange={(e) => setFullForm((f) => ({ ...f, gradeLevel: e.target.value }))}
-                          placeholder="11"
-                          className="text-sm"
-                        />
-                      </div>
-                      <div>
-                        <label className="text-[11px] font-semibold uppercase text-text-muted block mb-1">SAT</label>
-                        <Input
-                          type="number"
-                          value={fullForm.sat}
-                          onChange={(e) => setFullForm((f) => ({ ...f, sat: e.target.value }))}
-                          placeholder="1450"
-                          className="text-sm"
-                        />
-                      </div>
-                      <div>
-                        <label className="text-[11px] font-semibold uppercase text-text-muted block mb-1">ACT</label>
-                        <Input
-                          type="number"
-                          value={fullForm.act}
-                          onChange={(e) => setFullForm((f) => ({ ...f, act: e.target.value }))}
-                          placeholder="32"
-                          className="text-sm"
-                        />
-                      </div>
-                    </div>
-                    <div className="flex justify-end gap-3 mt-6">
-                      <button
-                        type="button"
-                        onClick={() => setShowEditQuestionnaire(false)}
-                        className="rounded-button border border-bg-border px-4 py-2 text-xs font-semibold text-text-secondary hover:bg-secondary-100"
-                      >
-                        Cancel
-                      </button>
-                      <button
-                        type="button"
-                        disabled={savingQuestionnaire}
-                        onClick={handleSaveFullQuestionnaire}
-                        className="rounded-button bg-primary-500 px-4 py-2 text-xs font-semibold text-white hover:bg-primary-600 disabled:opacity-60"
-                      >
-                        {savingQuestionnaire ? "Saving…" : "Save"}
-                      </button>
-                    </div>
-                  </div>
-                )}
-                {showFullQuestionnaire && !showEditQuestionnaire && (
-                  <div className="px-4 py-4 sm:px-6 sm:py-5">
-                    <OnboardingSummary
-                      answers={o}
-                      onEditSection={(step) => setEditingStep(step)}
-                    />
-                  </div>
-                )}
               </div>
-            </section>
+            </motion.div>
           )}
-        </div>
 
-        {/* Right sidebar */}
-        <aside className="lg:col-span-3 space-y-6">
-          <div className="bg-primary-500/5 border border-primary-500/20 rounded-card p-6 shadow-soft">
-            <div className="flex items-center gap-2 mb-4">
-              <Brain className="size-5 text-primary-500" aria-hidden />
-              <h4 className="font-bold text-text-primary">AI Coach Insights</h4>
-            </div>
-            <p className="text-xs leading-relaxed text-text-secondary">
-              {strength >= 70
-                ? "Your profile is in a strong place. Focus on polishing essays and finalizing a balanced college list."
-                : "There is still room to strengthen your profile. Completing more sections (academics, activities, preferences) will improve matching and guidance."}
-            </p>
-            <button
-              type="button"
-              onClick={() => router.push("/app/chat")}
-              className="w-full mt-4 py-2.5 bg-primary-500 text-white text-sm font-bold rounded-button shadow-soft hover:bg-primary-600 transition-colors"
+          {/* ... Other Tabs remain same but use BentoCard for consistency ... */}
+          {activeTab === "academic" && (
+            <motion.div
+              key="academic"
+              initial={{ opacity: 0, x: 20 }}
+              animate={{ opacity: 1, x: 0 }}
+              exit={{ opacity: 0 }}
             >
-              Discuss with AI Coach
-            </button>
-          </div>
+              <BentoCard title="Academic Records" icon={GraduationCap} className="w-full">
+                <div className="mt-4 grid grid-cols-1 gap-8 lg:grid-cols-2">
+                   {/* Left Column: Academic Basics */}
+                   <div className="grid grid-cols-1 gap-4">
+                      <div className="flex h-32 flex-col justify-center rounded-[2rem] border border-slate-100 bg-slate-50/50 p-8 transition-transform hover:scale-[1.02]">
+                        <p className="text-[10px] font-black uppercase tracking-[0.2em] text-slate-400">Weighted GPA</p>
+                        <div className="mt-2 flex items-baseline gap-2">
+                          <span className="text-5xl font-black tracking-tighter text-slate-900">{forms.gpa || "0.0"}</span>
+                          <span className="text-sm font-bold text-slate-400">/ {o.gpaScale || "4.0"} Scale</span>
+                        </div>
+                      </div>
+                      <div className="flex h-32 flex-col justify-center rounded-[2rem] border border-slate-100 bg-slate-50/50 p-8 transition-transform hover:scale-[1.02]">
+                        <p className="text-[10px] font-black uppercase tracking-[0.2em] text-slate-400">Expected Graduation</p>
+                        <span className="mt-2 text-4xl font-black tracking-tighter text-slate-900">{forms.gradYear || "202X"}</span>
+                      </div>
+                   </div>
 
-        </aside>
+                   {/* Right Column: Test Results (Dark Card) */}
+                   <div className="flex flex-col justify-center rounded-[2.5rem] bg-slate-900 p-10 text-white shadow-2xl transition-transform hover:scale-[1.02]">
+                      <div className="mb-10 flex items-center justify-between">
+                        <h4 className="text-xs font-black uppercase tracking-[0.3em] text-slate-500">Official Test Summary</h4>
+                        <div className="size-2 rounded-full bg-primary-500 shadow-[0_0_12px_rgba(var(--primary-rgb),0.5)]" />
+                      </div>
+                      
+                      <div className="space-y-10">
+                         <div className="flex items-center justify-between border-b border-white/5 pb-6 last:border-0 last:pb-0">
+                            <div>
+                              <p className="text-[10px] font-black uppercase tracking-widest text-slate-500">SAT Total Score</p>
+                              <p className="mt-1 text-sm font-bold text-slate-400">Latest official record</p>
+                            </div>
+                            <span className="text-5xl font-black tracking-tighter text-primary-400">{forms.sat || "—"}</span>
+                         </div>
+                         <div className="flex items-center justify-between">
+                            <div>
+                              <p className="text-[10px] font-black uppercase tracking-widest text-slate-500">ACT Composite</p>
+                              <p className="mt-1 text-sm font-bold text-slate-400">Alternative assessment</p>
+                            </div>
+                            <span className="text-5xl font-black tracking-tighter text-violet-400">{forms.act || "—"}</span>
+                         </div>
+                      </div>
+                   </div>
+                </div>
+              </BentoCard>
+            </motion.div>
+          )}
+
+
+          {activeTab === "records" && (
+            <motion.div
+              key="records"
+              initial={{ opacity: 0 }}
+              animate={{ opacity: 1 }}
+            >
+              <OnboardingSummary 
+                answers={o} 
+                onEditSection={(step) => openStepEditor(step)} 
+              />
+            </motion.div>
+          )}
+        </AnimatePresence>
       </main>
 
-      {editingStep != null && onboardingAnswers && (
-        <ProfileStepEditorModal
-          step={editingStep}
-          answers={onboardingAnswers}
-          onSave={async (partial) => {
-            const uid = auth.currentUser?.uid;
-            if (!uid) {
-              router.push("/login?redirect=/app/profile");
-              return;
-            }
-            setSavingStep(true);
-            try {
-              const next = { ...onboardingAnswers, ...partial };
-              await persistOnboardingToFirestore(uid, next);
-              setEditingStep(null);
-              toast({ title: "Saved", description: "Your changes have been updated." });
-              router.refresh();
-            } catch (e) {
-              console.error(e);
-              toast({ title: "Save failed", description: "Please try again.", variant: "error" });
-            } finally {
-              setSavingStep(false);
-            }
-          }}
-          onClose={() => setEditingStep(null)}
-          saving={savingStep}
-        />
+      {/* SIDE EDIT DRAWER */}
+      <ProfileEditDrawer
+        isOpen={drawerMode !== null}
+        onClose={() => {
+          setDrawerMode(null);
+          setEditingStep(null);
+        }}
+        title={
+          drawerMode === "basics" ? "Quick Adjust" : 
+          editingStep ? `Edit Section ${editingStep}` : 
+          "Settings"
+        }
+        onSave={handleSave}
+        isSaving={isSaving}
+      >
+        {drawerMode === "step" && stepData && (
+          <div className="space-y-6">
+            {editingStep === 1 && <Step1Editor data={stepData} onChange={(upd: any) => setStepData((p: any) => ({...p, ...upd}))} />}
+            {editingStep === 2 && <Step2Editor data={stepData} onChange={(upd: any) => setStepData((p: any) => ({...p, ...upd}))} />}
+            {editingStep === 3 && <Step3Editor data={stepData} onChange={(upd: any) => setStepData((p: any) => ({...p, ...upd}))} />}
+            {editingStep === 4 && <Step4Editor data={stepData} onChange={(upd: any) => setStepData((p: any) => ({...p, ...upd}))} />}
+            {editingStep === 5 && <Step5Editor data={stepData} onChange={(upd: any) => setStepData((p: any) => ({...p, ...upd}))} />}
+          </div>
+        )}
+
+        {drawerMode === "basics" && (
+          <div className="grid grid-cols-2 gap-6">
+          <div className="col-span-1">
+            <label className="text-[10px] font-black uppercase tracking-widest text-slate-400">First Name</label>
+            <Input value={forms.firstName} onChange={e => setForms(f => ({...f, firstName: e.target.value}))} className="mt-2 rounded-xl h-12" />
+          </div>
+          <div className="col-span-1">
+            <label className="text-[10px] font-black uppercase tracking-widest text-slate-400">Last Name</label>
+            <Input value={forms.lastName} onChange={e => setForms(f => ({...f, lastName: e.target.value}))} className="mt-2 rounded-xl h-12" />
+          </div>
+          <div className="col-span-2">
+            <label className="text-[10px] font-black uppercase tracking-widest text-slate-400">Current High School</label>
+            <Input value={forms.school} onChange={e => setForms(f => ({...f, school: e.target.value}))} className="mt-2 rounded-xl h-12" />
+          </div>
+          <div className="col-span-1">
+            <label className="text-[10px] font-black uppercase tracking-widest text-slate-400">GPA (Weighted)</label>
+            <Input type="number" step="0.01" min={0} max={onboardingAnswers?.gpaScale ?? 5} value={forms.gpa} onChange={e => setForms(f => ({...f, gpa: e.target.value}))} className="mt-2 rounded-xl h-12" />
+          </div>
+          <div className="col-span-1">
+            <label className="text-[10px] font-black uppercase tracking-widest text-slate-400">Graduation Year</label>
+            <Input type="number" value={forms.gradYear} onChange={e => setForms(f => ({...f, gradYear: e.target.value}))} className="mt-2 rounded-xl h-12" />
+          </div>
+          
+          <div className="col-span-2 py-4"><div className="h-px bg-slate-100" /></div>
+
+          <div className="col-span-1">
+            <label className="text-[10px] font-black uppercase tracking-widest text-slate-400">SAT Score</label>
+            <Input type="number" min={400} max={1600} value={forms.sat} onChange={e => setForms(f => ({...f, sat: e.target.value}))} className="mt-2 rounded-xl h-12" />
+          </div>
+          <div className="col-span-1">
+            <label className="text-[10px] font-black uppercase tracking-widest text-slate-400">ACT Composite</label>
+            <Input type="number" min={1} max={36} value={forms.act} onChange={e => setForms(f => ({...f, act: e.target.value}))} className="mt-2 rounded-xl h-12" />
+          </div>
+          <div className="col-span-1">
+            <label className="text-[10px] font-black uppercase tracking-widest text-slate-400">City</label>
+            <Input value={forms.city} onChange={e => setForms(f => ({...f, city: e.target.value}))} className="mt-2 rounded-xl h-12" />
+          </div>
+          <div className="col-span-1">
+            <label className="text-[10px] font-black uppercase tracking-widest text-slate-400">State</label>
+            <Input value={forms.state} onChange={e => setForms(f => ({...f, state: e.target.value}))} className="mt-2 rounded-xl h-12" />
+          </div>
+        </div>
       )}
+      </ProfileEditDrawer>
     </div>
   );
+}
+
+export interface ProfilePageContentProps {
+  onboardingAnswers: OnboardingDraft | null;
+  profilePhotoUrl?: string | null;
 }

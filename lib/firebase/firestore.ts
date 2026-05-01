@@ -157,11 +157,16 @@ export async function getEssay(userId: string, essayId: string): Promise<EssayDo
   return { id: snap.id, ...snap.data() } as EssayDoc;
 }
 
-export async function createEssay(userId: string, name: string, content: string): Promise<string> {
+export async function createEssay(
+  userId: string,
+  name: string,
+  content: string,
+  analysis?: unknown
+): Promise<string> {
   const colRef = collection(db, USERS, userId, USER_ESSAYS_SUBCOLLECTION);
   const ref = doc(colRef);
   const now = new Date().toISOString();
-  await setDoc(ref, { name, content, createdAt: now, updatedAt: now });
+  await setDoc(ref, stripUndefined({ name, content, analysis, createdAt: now, updatedAt: now }));
   return ref.id;
 }
 

@@ -1,6 +1,6 @@
 "use client";
 
-import { MapPin, Building2, GraduationCap, Edit3, FileDown } from "lucide-react";
+import { MapPin, Building2, GraduationCap, Edit3 } from "lucide-react";
 import { GlassCard } from "@/components/ui/GlassCard";
 import { ProgressBar } from "@/components/ui/ProgressBar";
 import { computeProfileStrength } from "@/lib/profile/profileStrength";
@@ -109,14 +109,6 @@ export function ProfileHeader({ onboarding, profilePhotoUrl }: ProfileHeaderProp
               >
                 <Edit3 className="h-4 w-4" aria-hidden />
                 Edit questionnaire
-              </button>
-              <button
-                type="button"
-                className="inline-flex items-center justify-center gap-2 rounded-xl border-2 border-bg-border bg-white/80 px-4 py-2.5 text-sm font-medium text-text-primary transition-colors hover:bg-slate-50 focus:outline-none focus:ring-2 focus:ring-primary-500/30"
-                aria-label="Export CV (coming soon)"
-              >
-                <FileDown className="h-4 w-4" aria-hidden />
-                Export CV
               </button>
             </div>
           </div>

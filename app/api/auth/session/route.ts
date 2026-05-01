@@ -2,7 +2,7 @@ import { NextRequest, NextResponse } from "next/server";
 import { adminAuth } from "@/lib/firebase/admin";
 import { sessionPostBodySchema } from "@/lib/validation/api";
 
-const COOKIE_NAME = "firebase-id-token";
+const COOKIE_NAME = "__session";
 
 export async function GET(req: Request) {
   const authHeader = req.headers.get("authorization");
@@ -36,12 +36,14 @@ export async function POST(req: NextRequest) {
     res.cookies.set(COOKIE_NAME, parsed.data.token, {
       path: "/",
       httpOnly: true,
+      secure: process.env.NODE_ENV === "production",
       sameSite: "lax",
-      maxAge: 86400,
+      maxAge: parsed.data.keepSignedIn ? 60 * 60 * 24 * 30 : 60 * 60 * 24,
     });
     return res;
-  } catch {
-    return NextResponse.json({ error: "Invalid token" }, { status: 401 });
+  } catch (error: any) {
+    console.error("verifyIdToken error:", error);
+    return NextResponse.json({ error: error?.message || "Invalid token" }, { status: 401 });
   }
 }
 

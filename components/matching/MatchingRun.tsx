@@ -12,10 +12,8 @@ import {
 import { useToastOptional } from "@/components/ui/toast";
 import { fetchWithAuth } from "@/lib/auth/fetchWithAuth";
 import type { CollegeMatch, MatchTier } from "@/lib/matching/types";
-import { ChevronDown, ChevronUp, Star, Zap, MapPin, Building2 } from "lucide-react";
-
-const PROGRESS_STEPS = [0, 12, 28, 45, 58, 72, 85];
-const PROGRESS_INTERVAL_MS = 380;
+import { ChevronDown, ChevronUp, Star, Zap, MapPin, Building2, HelpCircle, BookOpen, Gauge } from "lucide-react";
+import { markFirstTenStepDone } from "@/lib/activation/firstTen";
 
 export function MatchingRun({ basePath = "/app/colleges" }: { basePath?: string }) {
   const [loading, setLoading] = useState(false);
@@ -29,8 +27,6 @@ export function MatchingRun({ basePath = "/app/colleges" }: { basePath?: string 
   const [expandedId, setExpandedId] = useState<number | null>(null);
   const [favoriteIds, setFavoriteIds] = useState<Set<number>>(new Set());
   const [favoriteToggling, setFavoriteToggling] = useState<number | null>(null);
-  const progressStepRef = useRef(0);
-  const progressTimerRef = useRef<ReturnType<typeof setInterval> | null>(null);
 
   const { toast } = useToastOptional();
   const user = auth.currentUser;
@@ -77,22 +73,26 @@ export function MatchingRun({ basePath = "/app/colleges" }: { basePath?: string 
   }, [user]);
 
   useEffect(() => {
-    if (!loading) return;
-    setProgress(0);
-    progressStepRef.current = 0;
-    progressTimerRef.current = setInterval(() => {
-      const step = progressStepRef.current;
-      if (step < PROGRESS_STEPS.length - 1) {
-        progressStepRef.current += 1;
-        setProgress(PROGRESS_STEPS[progressStepRef.current]);
-      }
-    }, PROGRESS_INTERVAL_MS);
-    return () => {
-      if (progressTimerRef.current) {
-        clearInterval(progressTimerRef.current);
-        progressTimerRef.current = null;
-      }
-    };
+    if (!loading) {
+      setProgress(0);
+      return;
+    }
+
+    // Realistic "decaying" progress animation:
+    // Starts fast, then slows down as it gets closer to 100%, but never quite reaches it until finished.
+    const timer = setInterval(() => {
+      setProgress((prev) => {
+        if (prev >= 98) return 98; // Stay at 98 until setLoading(false)
+        
+        const remaining = 100 - prev;
+        // The closer we get, the smaller the increment
+        const step = Math.random() * (remaining / 12) + 0.1;
+        const next = prev + step;
+        return next > 98 ? 98 : next;
+      });
+    }, 180);
+
+    return () => clearInterval(timer);
   }, [loading]);
 
   async function runMatch() {
@@ -115,6 +115,7 @@ export function MatchingRun({ basePath = "/app/colleges" }: { basePath?: string 
         { runId: newRunId, createdAt: new Date().toISOString(), matches: newMatches },
         ...prev,
       ]);
+      markFirstTenStepDone(user?.uid, "matching");
       setProgress(100);
       toast({ description: "Matches updated.", variant: "success" });
     } catch (err) {
@@ -122,12 +123,7 @@ export function MatchingRun({ basePath = "/app/colleges" }: { basePath?: string 
       setError(msg);
       toast({ description: msg, variant: "error" });
     } finally {
-      if (progressTimerRef.current) {
-        clearInterval(progressTimerRef.current);
-        progressTimerRef.current = null;
-      }
       setLoading(false);
-      setProgress(0);
     }
   }
 
@@ -193,15 +189,21 @@ export function MatchingRun({ basePath = "/app/colleges" }: { basePath?: string 
   return (
     <div className="space-y-6">
       {/* Run Matching CTA */}
-      <div className="overflow-hidden rounded-2xl border-2 border-primary-500/20 bg-gradient-to-br from-primary-500/10 via-white to-amber-500/5 p-6 shadow-soft">
-        <div className="flex flex-col gap-6 sm:flex-row sm:items-center sm:justify-between">
+      <div className="relative overflow-hidden rounded-3xl border border-slate-200/90 bg-gradient-to-br from-white via-primary-50/40 to-amber-50/30 p-6 shadow-onboarding-card sm:p-8">
+        <div
+          className="absolute inset-x-0 top-0 h-1 bg-gradient-to-r from-[#0f1b2d] via-primary-600 to-amber-400"
+          aria-hidden
+        />
+        <div className="pointer-events-none absolute -right-20 top-1/2 h-40 w-40 -translate-y-1/2 rounded-full bg-primary-400/10 blur-3xl" aria-hidden />
+        <div className="relative flex flex-col gap-6 sm:flex-row sm:items-center sm:justify-between">
           <div className="flex items-center gap-4">
-            <div className="flex h-14 w-14 shrink-0 items-center justify-center rounded-2xl bg-gradient-to-br from-primary-500 to-primary-600 text-white shadow-lg ring-4 ring-primary-500/20">
+            <div className="flex h-14 w-14 shrink-0 items-center justify-center rounded-2xl bg-gradient-to-br from-primary-600 to-primary-700 text-white shadow-lg shadow-primary-600/30">
               <Zap className="h-7 w-7" aria-hidden />
             </div>
             <div>
-              <h2 className="text-xl font-bold text-text-primary">Get your matches</h2>
-              <p className="mt-1 text-sm text-text-muted">
+              <p className="text-[11px] font-bold uppercase tracking-[0.18em] text-primary-700">Ready when you are</p>
+              <h2 className="text-xl font-semibold text-slate-900">Get your matches</h2>
+              <p className="mt-1 text-sm text-slate-600">
                 {user
                   ? "We use your saved profile and questionnaire answers. Update them in your profile if needed."
                   : "Sign in to run matching with your profile and questionnaire answers."}
@@ -212,7 +214,7 @@ export function MatchingRun({ basePath = "/app/colleges" }: { basePath?: string 
             onClick={runMatch}
             disabled={loading}
             size="lg"
-            className="shrink-0 rounded-xl px-8 py-6 text-base font-semibold shadow-lg transition-all hover:shadow-xl focus:ring-2 focus:ring-primary-500/30"
+            className="shrink-0 rounded-xl border-0 bg-gradient-to-r from-primary-600 to-primary-700 px-8 py-6 text-base font-bold text-white shadow-lg shadow-primary-600/25 transition-all hover:from-primary-600 hover:to-primary-700 hover:shadow-xl focus-visible:ring-2 focus-visible:ring-primary-500/40 disabled:opacity-60"
           >
             {loading ? "Finding matches…" : "Run Matching"}
           </Button>
@@ -264,11 +266,11 @@ export function MatchingRun({ basePath = "/app/colleges" }: { basePath?: string 
         <div className="space-y-4 rounded-2xl border-2 border-primary-500/20 bg-gradient-to-b from-primary-50/50 to-white p-6">
           <div className="flex items-center justify-between gap-2">
             <h3 className="text-sm font-semibold text-text-primary">Finding schools that fit your profile…</h3>
-            <span className="text-sm font-bold tabular-nums text-primary-600">{progress}%</span>
+            <span className="text-sm font-bold tabular-nums text-primary-600">{Math.floor(progress)}%</span>
           </div>
           <div className="overflow-hidden rounded-xl bg-slate-200/80">
             <div
-              className="h-3 rounded-xl bg-gradient-to-r from-primary-500 to-primary-600 transition-[width] duration-500 ease-out"
+              className="h-3 rounded-xl bg-gradient-to-r from-primary-500 to-primary-600 transition-[width] duration-300 ease-out"
               style={{ width: `${progress}%` }}
               role="progressbar"
               aria-valuenow={progress}
@@ -284,41 +286,6 @@ export function MatchingRun({ basePath = "/app/colleges" }: { basePath?: string 
 
       {!loading && matches.length > 0 && (
         <div className="space-y-5">
-          <div className="rounded-2xl border border-primary-200 bg-gradient-to-br from-primary-50/70 to-white p-5">
-            <div className="flex flex-wrap items-center justify-between gap-3">
-              <div>
-                <h3 className="text-base font-bold text-text-primary">Portfolio Simulation</h3>
-                <p className="mt-1 text-xs text-text-muted">
-                  Your Reach/Match/Safety mix and tips to balance the list.
-                </p>
-              </div>
-              {runId && (
-                <Link
-                  href={`/app/apply-now?runId=${encodeURIComponent(runId)}`}
-                  className="inline-flex items-center rounded-lg border border-primary-200 bg-white px-3 py-1.5 text-xs font-semibold text-primary-700 hover:bg-primary-50"
-                >
-                  Apply Now shortlist
-                </Link>
-              )}
-            </div>
-            <div className="mt-3 grid gap-3 sm:grid-cols-3">
-              <div className="rounded-xl border border-amber-200 bg-amber-50 p-3">
-                <p className="text-xs font-semibold text-amber-800">Reach</p>
-                <p className="mt-1 text-xl font-bold text-amber-900">{tierCounts.reach} ({tierPct.reach}%)</p>
-              </div>
-              <div className="rounded-xl border border-primary-200 bg-primary-50 p-3">
-                <p className="text-xs font-semibold text-primary-700">Match</p>
-                <p className="mt-1 text-xl font-bold text-primary-800">{tierCounts.match} ({tierPct.match}%)</p>
-              </div>
-              <div className="rounded-xl border border-emerald-200 bg-emerald-50 p-3">
-                <p className="text-xs font-semibold text-emerald-700">Safety</p>
-                <p className="mt-1 text-xl font-bold text-emerald-800">{tierCounts.safety} ({tierPct.safety}%)</p>
-              </div>
-            </div>
-            <p className="mt-3 rounded-lg border border-slate-200 bg-white p-3 text-sm text-text-secondary">
-              <span className="font-semibold text-text-primary">Balance tip:</span> {portfolioAdvice()}
-            </p>
-          </div>
 
           <div>
             <h3 className="flex items-center gap-2 text-xl font-bold text-text-primary">
@@ -402,6 +369,8 @@ export function MatchingRun({ basePath = "/app/colleges" }: { basePath?: string 
                               selectivity: 6,
                               activities: 7,
                               personality: 8,
+                              budget: 9,
+                              major: 10,
                             };
                             const ak = a[0];
                             const bk = b[0];
@@ -418,6 +387,8 @@ export function MatchingRun({ basePath = "/app/colleges" }: { basePath?: string 
                               selectivity: "Selectivity",
                               activities: "Activities",
                               personality: "Campus culture",
+                              budget: "Budget Fit",
+                              major: "Major Fit",
                             };
                             const label = labelMap[key] ?? key;
                             const suffix = idx === arr.length - 1 ? "" : ", ";

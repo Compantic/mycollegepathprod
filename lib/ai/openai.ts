@@ -19,18 +19,49 @@ function normalizeOpenAIError(err: unknown): Error {
   return err instanceof Error ? err : new ServiceUnavailableError("AI service temporarily unavailable. Please try again later.");
 }
 
+function isFallbackCandidateError(err: unknown): boolean {
+  const status = err && typeof err === "object" && "status" in err ? (err as { status?: number }).status : undefined;
+  const message =
+    err && typeof err === "object" && "message" in err
+      ? String((err as { message?: string }).message ?? "")
+      : "";
+  if (status === 400 || status === 404) return true;
+  return /model|unsupported|not found|access|permission/i.test(message);
+}
+
 export async function chatCompletion(
   messages: OpenAI.Chat.ChatCompletionMessageParam[],
-  options?: { model?: string; temperature?: number }
+  options?: { model?: string; temperature?: number; response_format?: object }
 ): Promise<OpenAI.Chat.ChatCompletionMessage | null> {
   const openai = getClient();
+  const modelCandidates = [
+    options?.model,
+    process.env.OPENAI_MODEL,
+    "gpt-5.5",
+    "gpt-4.1",
+    "gpt-4o-mini",
+  ].filter((m): m is string => Boolean(m));
+  const dedupedModels = Array.from(new Set(modelCandidates));
+
   try {
-    const res = await openai.chat.completions.create({
-      model: options?.model ?? "gpt-4o-mini",
-      messages,
-      temperature: options?.temperature ?? 0.7,
-    });
-    return res.choices?.[0]?.message ?? null;
+    for (let i = 0; i < dedupedModels.length; i++) {
+      const model = dedupedModels[i];
+      try {
+        const res = await openai.chat.completions.create({
+          model,
+          messages,
+          temperature: options?.temperature ?? 0.7,
+          response_format: options?.response_format as any,
+        });
+        return res.choices?.[0]?.message ?? null;
+      } catch (err) {
+        if (i < dedupedModels.length - 1 && isFallbackCandidateError(err)) {
+          continue;
+        }
+        throw err;
+      }
+    }
+    return null;
   } catch (err) {
     throw normalizeOpenAIError(err);
   }

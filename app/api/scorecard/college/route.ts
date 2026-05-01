@@ -6,6 +6,24 @@ import { scorecardCollegeQuerySchema } from "@/lib/validation/api";
 import { getApiErrorStatus } from "@/lib/errors/api";
 import { logApiError } from "@/lib/logging/api";
 
+function hasExtendedDetailFields(college: unknown): boolean {
+  if (!college || typeof college !== "object") return false;
+  const c = college as {
+    latest?: {
+      admissions?: unknown;
+      aid?: unknown;
+      earnings?: unknown;
+      cost?: { avg_net_price?: unknown };
+    };
+  };
+  return Boolean(
+    c.latest?.admissions ||
+      c.latest?.aid ||
+      c.latest?.earnings ||
+      c.latest?.cost?.avg_net_price
+  );
+}
+
 export async function GET(req: NextRequest) {
   const idParam = req.nextUrl.searchParams.get("id");
   const parsed = scorecardCollegeQuerySchema.safeParse({ id: idParam ?? undefined });
@@ -17,13 +35,13 @@ export async function GET(req: NextRequest) {
   try {
     // 1) Firestore cache (7-day TTL)
     const firestoreCached = await getCollegeFromFirestoreCache(id);
-    if (firestoreCached) {
+    if (firestoreCached && hasExtendedDetailFields(firestoreCached)) {
       return NextResponse.json(firestoreCached);
     }
 
     // 2) In-memory cache within this process
     const cached = getCachedCollege(id);
-    if (cached) return NextResponse.json(cached);
+    if (cached && hasExtendedDetailFields(cached)) return NextResponse.json(cached);
 
     // 3) Fallback to Scorecard API
     const college = await getSchoolById(id);

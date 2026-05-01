@@ -6,6 +6,7 @@ import { z } from "zod";
 
 export const sessionPostBodySchema = z.object({
   token: z.string().min(1, "token required"),
+  keepSignedIn: z.boolean().optional(),
 });
 
 export const chatPostBodySchema = z.object({

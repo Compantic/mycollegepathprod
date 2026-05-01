@@ -18,7 +18,7 @@ export async function runAdmissionsCoach(
   ];
 
   const response = await openai.chat.completions.create({
-    model: options?.model ?? "gpt-4o-mini",
+    model: options?.model ?? process.env.OPENAI_CHAT_MODEL ?? "gpt-5.5",
     messages: allMessages,
     tools: admissionsCoachTools,
     tool_choice: "auto",
@@ -86,7 +86,7 @@ export async function runAdmissionsCoach(
       });
     }
     const followUp = await openai.chat.completions.create({
-      model: options?.model ?? "gpt-4o-mini",
+      model: options?.model ?? process.env.OPENAI_CHAT_MODEL ?? "gpt-5.5",
       messages: [...allMessages, ...toolResults],
       temperature: 0.7,
     });

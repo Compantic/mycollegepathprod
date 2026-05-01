@@ -2,7 +2,7 @@
 
 import { useState, useCallback, useEffect } from "react";
 import Link from "next/link";
-import { motion, AnimatePresence } from "framer-motion";
+import { motion, AnimatePresence, useReducedMotion } from "framer-motion";
 import { ListChecks, Star, Trash2, GraduationCap, Sparkles, ChevronRight, Search } from "lucide-react";
 import { auth } from "@/lib/firebase/client";
 import { getFavoriteColleges, removeFavoriteCollege } from "@/lib/firebase/firestore";
@@ -14,20 +14,8 @@ import { cn } from "@/lib/utils";
 const basePath = "/app/colleges";
 const PER_PAGE = 5;
 
-const container = {
-  hidden: { opacity: 0 },
-  show: {
-    opacity: 1,
-    transition: { staggerChildren: 0.06, delayChildren: 0.1 },
-  },
-};
-
-const item = {
-  hidden: { opacity: 0, y: 12 },
-  show: { opacity: 1, y: 0 },
-};
-
 export function CollegesPageContent() {
+  const reduceMotion = useReducedMotion();
   const [favoritesRefresh, setFavoritesRefresh] = useState(0);
   const [list, setList] = useState<{ collegeId: number; name: string }[]>([]);
   const [loading, setLoading] = useState(true);
@@ -63,132 +51,140 @@ export function CollegesPageContent() {
   const paginatedList = list.slice(start, start + PER_PAGE);
   const reachCount = list.length ? Math.ceil(list.length / 3) : 0;
 
+  useEffect(() => {
+    setPage((prev) => Math.min(prev, totalPages));
+  }, [totalPages]);
+
+  const container = {
+    hidden: { opacity: 0 },
+    show: {
+      opacity: 1,
+      transition: { staggerChildren: reduceMotion ? 0 : 0.07, delayChildren: reduceMotion ? 0 : 0.08 },
+    },
+  };
+  const item = {
+    hidden: { opacity: 0, y: reduceMotion ? 0 : 14 },
+    show: {
+      opacity: 1,
+      y: 0,
+      transition: { type: "spring" as const, stiffness: 320, damping: 28 },
+    },
+  };
+
   return (
     <motion.div
       className="min-h-screen"
       initial={{ opacity: 0 }}
       animate={{ opacity: 1 }}
-      transition={{ duration: 0.4 }}
+      transition={{ duration: reduceMotion ? 0 : 0.35 }}
     >
-      {/* Hero header */}
       <motion.header
-        className="relative overflow-hidden rounded-2xl sm:rounded-3xl mb-8 sm:mb-10"
-        initial={{ opacity: 0, y: -20 }}
+        className="relative mb-8 overflow-hidden rounded-3xl border border-white/10 shadow-2xl sm:mb-10"
+        initial={reduceMotion ? false : { opacity: 0, y: -16 }}
         animate={{ opacity: 1, y: 0 }}
-        transition={{ duration: 0.5, ease: [0.25, 0.46, 0.45, 0.94] }}
+        transition={{ type: "spring", stiffness: 260, damping: 28 }}
       >
         <div
-          className="absolute inset-0 bg-gradient-to-br from-primary-600 via-primary-500 to-indigo-600"
+          className="absolute inset-0 bg-gradient-to-br from-[#0f1b2d] via-primary-700 to-[#162236]"
           aria-hidden
         />
         <div
-          className="absolute inset-0 opacity-30"
+          className="absolute inset-0 opacity-40"
           style={{
-            backgroundImage: `radial-gradient(circle at 20% 80%, rgba(255,255,255,0.15) 0%, transparent 50%),
-                              radial-gradient(circle at 80% 20%, rgba(255,255,255,0.1) 0%, transparent 40%)`,
+            backgroundImage: `radial-gradient(circle at 20% 80%, rgba(252,211,77,0.12) 0%, transparent 45%),
+              radial-gradient(circle at 80% 20%, rgba(43,95,217,0.25) 0%, transparent 40%)`,
           }}
           aria-hidden
         />
-        <div
-          className="absolute inset-0 opacity-20"
-          style={{
-            backgroundImage: "url(\"data:image/svg+xml,%3Csvg width='60' height='60' viewBox='0 0 60 60' xmlns='http://www.w3.org/2000/svg'%3E%3Cg fill='none' fill-rule='evenodd'%3E%3Cg fill='%23ffffff' fill-opacity='0.4'%3E%3Cpath d='M36 34v-4h-2v4h-4v2h4v4h2v-4h4v-2h-4zm0-30V0h-2v4h-4v2h4v4h2V6h4V4h-4zM6 34v-4H4v4H0v2h4v4h2v-4h4v-2H6zM6 4V0H4v4H0v2h4v4h2V6h4V4H6z'/%3E%3C/g%3E%3C/g%3E%3C/svg%3E\")",
-          }}
-          aria-hidden
-        />
-        <div className="relative px-6 sm:px-8 py-8 sm:py-10">
-          <nav className="text-sm text-white/80 mb-6" aria-label="Breadcrumb">
-            <Link href="/app/dashboard" className="hover:text-white transition-colors">
+        <div className="absolute inset-0 bg-pattern opacity-25" aria-hidden />
+        <div className="relative px-6 py-9 sm:px-10 sm:py-11">
+          <nav className="mb-6 text-sm text-slate-300" aria-label="Breadcrumb">
+            <Link href="/app/dashboard" className="transition-colors hover:text-white">
               Home
             </Link>
-            <span className="mx-2">/</span>
-            <span className="text-white font-medium">My College List</span>
+            <span className="mx-2 text-slate-500">/</span>
+            <span className="font-semibold text-white">My College List</span>
           </nav>
           <motion.div
-            className="flex flex-col gap-4"
-            initial={{ opacity: 0, y: 10 }}
+            className="flex max-w-3xl flex-col gap-4"
+            initial={reduceMotion ? false : { opacity: 0, y: 12 }}
             animate={{ opacity: 1, y: 0 }}
-            transition={{ delay: 0.15, duration: 0.4 }}
+            transition={{ delay: reduceMotion ? 0 : 0.1, type: "spring", stiffness: 300, damping: 28 }}
           >
-            <div className="inline-flex items-center gap-2 rounded-full bg-white/20 backdrop-blur-sm px-4 py-1.5 w-fit text-sm font-medium text-white">
-              <Sparkles className="h-4 w-4" aria-hidden />
+            <div className="inline-flex w-fit items-center gap-2 rounded-full border border-white/20 bg-white/10 px-4 py-1.5 text-xs font-bold uppercase tracking-wider text-amber-300 backdrop-blur-md">
+              <Sparkles className="h-3.5 w-3.5" aria-hidden />
               Personalized college list hub
             </div>
-            <h1 className="text-3xl sm:text-4xl lg:text-5xl font-extrabold text-white tracking-tight max-w-2xl">
+            <h1 className="text-3xl font-semibold tracking-tight text-white sm:text-4xl lg:text-5xl">
               My College List
             </h1>
-            <p className="text-base sm:text-lg text-white/90 max-w-xl">
-              Save schools you&apos;re interested in, then jump into details, matching, and AI guidance from one place.
+            <p className="max-w-xl text-base leading-relaxed text-slate-300 sm:text-lg">
+              <span className="italic text-amber-200/90">Save, compare, and act.</span> Jump into details, matching, and AI guidance from one place.
             </p>
           </motion.div>
         </div>
       </motion.header>
 
-      {/* Summary cards */}
       <motion.div
-        className="grid gap-4 sm:gap-6 grid-cols-1 sm:grid-cols-2 mb-8"
+        className="mb-8 grid grid-cols-1 gap-5 sm:grid-cols-2 sm:gap-6"
         variants={container}
         initial="hidden"
         animate="show"
       >
         <motion.div
           variants={item}
-          whileHover={{ scale: 1.02, transition: { duration: 0.2 } }}
-          whileTap={{ scale: 0.99 }}
-          className="group relative overflow-hidden rounded-2xl border border-bg-border bg-bg-card shadow-soft p-6 flex items-center justify-between bg-gradient-to-br from-primary-500/10 via-bg-card to-transparent hover:shadow-md transition-shadow"
+          whileHover={reduceMotion ? undefined : { y: -4, transition: { duration: 0.2 } }}
+          className="group relative flex items-center justify-between overflow-hidden rounded-3xl border border-blue-200/80 bg-gradient-to-br from-blue-50/90 via-white to-white p-6 shadow-onboarding-card"
         >
+          <div className="pointer-events-none absolute -right-8 -top-8 h-28 w-28 rounded-full bg-primary-400/15 blur-2xl" />
           <div className="relative z-10">
-            <p className="text-xs font-bold text-primary-600 uppercase tracking-wider">Total colleges</p>
-            <p className="mt-2 text-3xl sm:text-4xl font-extrabold text-text-primary tabular-nums">
+            <p className="text-[11px] font-bold uppercase tracking-[0.2em] text-primary-700">Total colleges</p>
+            <p className="mt-2 text-3xl font-bold tabular-nums text-slate-900 sm:text-4xl">
               {loading ? "—" : list.length}
             </p>
-            <p className="mt-1 text-sm text-text-secondary">
-              Favorites you&apos;ve saved for deeper research.
-            </p>
+            <p className="mt-1 text-sm text-slate-600">Favorites you&apos;ve saved for deeper research.</p>
           </div>
           <motion.div
-            className="relative z-10 flex h-14 w-14 shrink-0 items-center justify-center rounded-2xl bg-primary-500 text-white shadow-lg"
-            whileHover={{ rotate: 5 }}
-            transition={{ type: "spring", stiffness: 400 }}
+            className="relative z-10 flex h-16 w-16 shrink-0 items-center justify-center rounded-2xl bg-gradient-to-br from-primary-600 to-primary-700 text-white shadow-lg"
+            whileHover={reduceMotion ? undefined : { rotate: 6, scale: 1.05 }}
+            transition={{ type: "spring", stiffness: 400, damping: 18 }}
           >
-            <ListChecks className="h-7 w-7" aria-hidden />
+            <ListChecks className="h-8 w-8" aria-hidden />
           </motion.div>
         </motion.div>
 
         <motion.div
           variants={item}
-          whileHover={{ scale: 1.02, transition: { duration: 0.2 } }}
-          whileTap={{ scale: 0.99 }}
-          className="group relative overflow-hidden rounded-2xl border border-bg-border bg-bg-card shadow-soft p-6 flex items-center justify-between bg-gradient-to-br from-amber-500/10 via-bg-card to-transparent hover:shadow-md transition-shadow"
+          whileHover={reduceMotion ? undefined : { y: -4, transition: { duration: 0.2 } }}
+          className="group relative flex items-center justify-between overflow-hidden rounded-3xl border border-amber-200/90 bg-gradient-to-br from-amber-50/90 via-white to-white p-6 shadow-onboarding-card"
         >
+          <div className="pointer-events-none absolute -right-6 bottom-0 h-24 w-24 rounded-full bg-amber-300/25 blur-2xl" />
           <div className="relative z-10">
-            <p className="text-xs font-bold text-amber-600 uppercase tracking-wider">Targeting reach schools</p>
-            <p className="mt-2 text-3xl sm:text-4xl font-extrabold text-amber-600 tabular-nums">
+            <p className="text-[11px] font-bold uppercase tracking-[0.2em] text-amber-800">Targeting reach schools</p>
+            <p className="mt-2 text-3xl font-bold tabular-nums text-amber-900 sm:text-4xl">
               {loading ? "—" : reachCount}
             </p>
-            <p className="mt-1 text-sm text-text-secondary">
-              Ambitious options to keep your list balanced.
-            </p>
+            <p className="mt-1 text-sm text-slate-600">Ambitious picks to keep your list balanced.</p>
           </div>
           <motion.div
-            className="relative z-10 flex h-14 w-14 shrink-0 items-center justify-center rounded-2xl bg-amber-500 text-white shadow-lg"
-            whileHover={{ rotate: -5 }}
-            transition={{ type: "spring", stiffness: 400 }}
+            className="relative z-10 flex h-16 w-16 shrink-0 items-center justify-center rounded-2xl bg-gradient-to-br from-amber-400 to-amber-500 text-amber-950 shadow-lg"
+            whileHover={reduceMotion ? undefined : { rotate: -6, scale: 1.05 }}
+            transition={{ type: "spring", stiffness: 400, damping: 18 }}
           >
-            <Star className="h-7 w-7 fill-current" aria-hidden />
+            <Star className="h-8 w-8 fill-current" aria-hidden />
           </motion.div>
         </motion.div>
       </motion.div>
 
-      {/* College list card */}
       <motion.div
-        className="rounded-2xl border border-bg-border bg-bg-card shadow-soft overflow-hidden"
-        initial={{ opacity: 0, y: 20 }}
+        className="overflow-hidden rounded-3xl border border-slate-200/90 bg-white/95 shadow-onboarding-card backdrop-blur-sm"
+        initial={reduceMotion ? false : { opacity: 0, y: 20 }}
         animate={{ opacity: 1, y: 0 }}
-        transition={{ delay: 0.25, duration: 0.4 }}
+        transition={{ delay: reduceMotion ? 0 : 0.12, type: "spring", stiffness: 280, damping: 28 }}
       >
+        <div className="h-1 bg-gradient-to-r from-primary-600 via-amber-300 to-primary-500" aria-hidden />
         {loading ? (
-          <div className="p-6 sm:p-8 space-y-4">
+          <div className="space-y-4 p-6 sm:p-8">
             <Skeleton className="h-10 w-full rounded-xl" />
             <Skeleton className="h-16 w-full rounded-xl" />
             <Skeleton className="h-16 w-full rounded-xl" />
@@ -196,45 +192,49 @@ export function CollegesPageContent() {
           </div>
         ) : list.length === 0 ? (
           <motion.div
-            className="p-10 sm:p-14 text-center"
-            initial={{ opacity: 0 }}
+            className="px-6 py-14 text-center sm:py-16"
+            initial={reduceMotion ? false : { opacity: 0 }}
             animate={{ opacity: 1 }}
-            transition={{ delay: 0.2 }}
+            transition={{ delay: reduceMotion ? 0 : 0.15 }}
           >
             <motion.div
-              className="mx-auto flex h-20 w-20 items-center justify-center rounded-2xl bg-primary-500/10 text-primary-500 mb-6"
-              animate={{ y: [0, -6, 0] }}
-              transition={{ duration: 2.5, repeat: Infinity, ease: "easeInOut" }}
+              className="mx-auto mb-6 flex h-24 w-24 items-center justify-center rounded-3xl bg-gradient-to-br from-primary-500/15 to-violet-100 text-primary-700 shadow-inner ring-1 ring-primary-200/50"
+              animate={reduceMotion ? undefined : { y: [0, -8, 0] }}
+              transition={{ duration: 3, repeat: Infinity, ease: "easeInOut" }}
             >
-              <GraduationCap className="h-10 w-10" aria-hidden />
+              <GraduationCap className="h-12 w-12" aria-hidden />
             </motion.div>
-            <p className="text-lg font-medium text-text-primary">You haven&apos;t added any colleges yet.</p>
-            <p className="mt-1 text-sm text-text-secondary max-w-sm mx-auto">
+            <p className="text-xl font-semibold text-slate-900">You haven&apos;t added any colleges yet.</p>
+            <p className="mx-auto mt-2 max-w-sm text-sm text-slate-600">
               Search below and add schools to build your personalized list.
             </p>
             <Button
-              className="mt-6 gap-2"
+              className="mt-8 gap-2 rounded-xl bg-gradient-to-r from-primary-600 to-primary-700 px-6 py-6 text-base font-bold shadow-lg shadow-primary-600/25 hover:scale-[1.02]"
               size="lg"
               onClick={scrollToSearch}
             >
               <Search className="h-4 w-4" aria-hidden />
-              Add College
+              Add college
             </Button>
           </motion.div>
         ) : (
           <>
-            <div className="px-5 sm:px-6 pt-5 pb-3 border-b border-bg-border bg-secondary-100/40">
-              <p className="text-xs font-bold uppercase tracking-wider text-text-muted">Favorites</p>
-              <p className="text-sm text-text-secondary mt-0.5">
-                Click a college to open its profile, or remove it from your list.
+            <div className="border-b border-slate-100 bg-slate-50/80 px-5 py-4 sm:px-6">
+              <p className="text-[11px] font-bold uppercase tracking-[0.2em] text-slate-500">Favorites</p>
+              <p className="mt-1 text-sm text-slate-600">
+                Open a school for the full profile, or remove it from your list.
               </p>
             </div>
-            <div className="hidden sm:block overflow-x-auto">
+            <div className="hidden overflow-x-auto sm:block">
               <table className="w-full text-sm" role="table">
                 <thead>
-                  <tr className="border-b border-bg-border bg-secondary-100/50">
-                    <th className="text-left py-4 px-5 font-semibold text-text-muted uppercase tracking-wider">College Name</th>
-                    <th className="w-24 py-4 px-4 text-right font-semibold text-text-muted uppercase tracking-wider">Actions</th>
+                  <tr className="border-b border-slate-100 bg-white">
+                    <th className="px-5 py-4 text-left text-[11px] font-bold uppercase tracking-wider text-slate-500">
+                      College name
+                    </th>
+                    <th className="w-28 px-4 py-4 text-right text-[11px] font-bold uppercase tracking-wider text-slate-500">
+                      Actions
+                    </th>
                   </tr>
                 </thead>
                 <tbody>
@@ -245,35 +245,35 @@ export function CollegesPageContent() {
                         <motion.tr
                           key={fav.collegeId}
                           layout
-                          initial={{ opacity: 0, x: -8 }}
+                          initial={{ opacity: 0, x: -10 }}
                           animate={{ opacity: 1, x: 0 }}
                           exit={{ opacity: 0 }}
-                          transition={{ delay: index * 0.04 }}
-                          className="border-b border-bg-border last:border-0 hover:bg-primary-500/5 transition-colors"
+                          transition={{ delay: index * 0.03 }}
+                          className="border-b border-slate-100 transition-colors last:border-0 hover:bg-primary-500/[0.04]"
                         >
-                          <td className="py-4 px-5">
+                          <td className="px-5 py-4">
                             <Link
                               href={`${basePath}/${fav.collegeId}`}
-                              className="flex items-center gap-4 no-underline text-inherit group/link"
+                              className="group/link flex items-center gap-4 text-inherit no-underline"
                             >
                               <motion.span
-                                className="flex h-11 w-11 shrink-0 items-center justify-center rounded-xl bg-primary-500/15 text-sm font-bold text-primary-600"
-                                whileHover={{ scale: 1.05 }}
+                                className="flex h-12 w-12 shrink-0 items-center justify-center rounded-2xl bg-gradient-to-br from-primary-500/15 to-blue-50 text-sm font-bold text-primary-700 ring-1 ring-primary-200/60"
+                                whileHover={{ scale: 1.06 }}
                                 aria-hidden
                               >
                                 {initial}
                               </motion.span>
-                              <span className="font-semibold text-text-primary group-hover/link:text-primary-600 transition-colors">
+                              <span className="font-semibold text-slate-900 transition-colors group-hover/link:text-primary-700">
                                 {fav.name}
                               </span>
-                              <ChevronRight className="h-4 w-4 text-text-muted group-hover/link:text-primary-500 ml-auto opacity-0 group-hover/link:opacity-100 transition-all" aria-hidden />
+                              <ChevronRight className="ml-auto h-4 w-4 text-slate-400 opacity-0 transition-all group-hover/link:translate-x-0.5 group-hover/link:text-primary-600 group-hover/link:opacity-100" aria-hidden />
                             </Link>
                           </td>
-                          <td className="py-4 px-4 text-right">
+                          <td className="px-4 py-4 text-right">
                             <motion.button
                               type="button"
-                              whileHover={{ scale: 1.05 }}
-                              whileTap={{ scale: 0.95 }}
+                              whileHover={{ scale: 1.04 }}
+                              whileTap={{ scale: 0.96 }}
                               onClick={async () => {
                                 if (!userId) return;
                                 try {
@@ -283,7 +283,7 @@ export function CollegesPageContent() {
                                   // ignore
                                 }
                               }}
-                              className="inline-flex items-center gap-1.5 rounded-xl border border-red-200 px-3 py-2 text-xs font-medium text-red-600 hover:bg-red-50 transition-colors"
+                              className="inline-flex items-center gap-1.5 rounded-xl border border-rose-200 bg-white px-3 py-2 text-xs font-semibold text-rose-700 transition-colors hover:bg-rose-50"
                             >
                               <Trash2 className="h-3.5 w-3.5" aria-hidden />
                               Remove
@@ -297,7 +297,7 @@ export function CollegesPageContent() {
               </table>
             </div>
 
-            <div className="sm:hidden divide-y divide-bg-border">
+            <div className="divide-y divide-slate-100 sm:hidden">
               <AnimatePresence mode="popLayout">
                 {paginatedList.map((fav, index) => {
                   const initial = fav.name.replace(/\b(\w)/g, (_, c) => c).slice(0, 2).toUpperCase() || "—";
@@ -308,17 +308,14 @@ export function CollegesPageContent() {
                       initial={{ opacity: 0, y: 8 }}
                       animate={{ opacity: 1, y: 0 }}
                       exit={{ opacity: 0 }}
-                      transition={{ delay: index * 0.04 }}
-                      className="flex items-center justify-between gap-3 px-5 py-4 hover:bg-secondary-100/40 transition-colors"
+                      transition={{ delay: index * 0.03 }}
+                      className="flex items-center justify-between gap-3 px-5 py-4 transition-colors hover:bg-slate-50/80"
                     >
-                      <Link
-                        href={`${basePath}/${fav.collegeId}`}
-                        className="flex flex-1 items-center gap-3 no-underline text-inherit min-w-0"
-                      >
-                        <span className="flex h-11 w-11 shrink-0 items-center justify-center rounded-xl bg-primary-500/15 text-sm font-bold text-primary-600">
+                      <Link href={`${basePath}/${fav.collegeId}`} className="flex min-w-0 flex-1 items-center gap-3 no-underline">
+                        <span className="flex h-11 w-11 shrink-0 items-center justify-center rounded-xl bg-primary-500/12 text-sm font-bold text-primary-700">
                           {initial}
                         </span>
-                        <span className="font-semibold text-text-primary line-clamp-2">{fav.name}</span>
+                        <span className="line-clamp-2 font-semibold text-slate-900">{fav.name}</span>
                       </Link>
                       <button
                         type="button"
@@ -331,7 +328,7 @@ export function CollegesPageContent() {
                             // ignore
                           }
                         }}
-                        className="shrink-0 inline-flex items-center gap-1.5 rounded-xl border border-red-200 px-3 py-2 text-xs font-medium text-red-600 hover:bg-red-50"
+                        className="inline-flex shrink-0 items-center gap-1 rounded-xl border border-rose-200 px-3 py-2 text-xs font-semibold text-rose-700 hover:bg-rose-50"
                       >
                         <Trash2 className="h-3.5 w-3.5" aria-hidden />
                         Remove
@@ -344,12 +341,11 @@ export function CollegesPageContent() {
 
             {list.length > PER_PAGE && (
               <motion.div
-                className="flex flex-wrap items-center justify-between gap-4 px-5 py-4 border-t border-bg-border text-sm bg-secondary-100/30"
-                initial={{ opacity: 0 }}
+                className="flex flex-wrap items-center justify-between gap-4 border-t border-slate-100 bg-slate-50/50 px-5 py-4 text-sm"
+                initial={reduceMotion ? false : { opacity: 0 }}
                 animate={{ opacity: 1 }}
-                transition={{ delay: 0.3 }}
               >
-                <span className="text-text-muted">
+                <span className="text-slate-500">
                   Showing {start + 1}–{Math.min(start + PER_PAGE, list.length)} of {list.length}
                 </span>
                 <div className="flex items-center gap-1">
@@ -357,6 +353,7 @@ export function CollegesPageContent() {
                     type="button"
                     variant="outline"
                     size="sm"
+                    className="rounded-xl border-slate-200"
                     disabled={page <= 1}
                     onClick={() => setPage((p) => Math.max(1, p - 1))}
                   >
@@ -368,10 +365,10 @@ export function CollegesPageContent() {
                       type="button"
                       onClick={() => setPage(p)}
                       className={cn(
-                        "h-9 min-w-[2.25rem] rounded-lg font-medium text-sm transition-colors",
+                        "h-9 min-w-[2.25rem] rounded-xl text-sm font-semibold transition-colors",
                         p === page
-                          ? "bg-primary-500 text-white shadow-sm"
-                          : "border border-bg-border bg-bg-card text-text-secondary hover:bg-secondary-100"
+                          ? "bg-gradient-to-r from-primary-600 to-primary-700 text-white shadow-md"
+                          : "border border-slate-200 bg-white text-slate-600 hover:bg-slate-50"
                       )}
                     >
                       {p}
@@ -381,6 +378,7 @@ export function CollegesPageContent() {
                     type="button"
                     variant="outline"
                     size="sm"
+                    className="rounded-xl border-slate-200"
                     disabled={page >= totalPages}
                     onClick={() => setPage((p) => Math.min(totalPages, p + 1))}
                   >
@@ -393,51 +391,53 @@ export function CollegesPageContent() {
         )}
       </motion.div>
 
-      {/* AI suggestion banner */}
       <motion.div
-        className="rounded-2xl border border-primary-200 bg-gradient-to-r from-primary-500/5 to-indigo-500/5 p-5 sm:p-6 flex flex-col sm:flex-row sm:items-center gap-4 mt-8"
-        initial={{ opacity: 0, y: 16 }}
+        className="mt-8 flex flex-col gap-4 rounded-3xl border border-violet-200/90 bg-gradient-to-r from-violet-50/90 via-white to-blue-50/80 p-6 shadow-lg sm:flex-row sm:items-center sm:gap-6 sm:p-7"
+        initial={reduceMotion ? false : { opacity: 0, y: 16 }}
         animate={{ opacity: 1, y: 0 }}
-        transition={{ delay: 0.35, duration: 0.4 }}
-        whileHover={{ scale: 1.005 }}
+        transition={{ delay: reduceMotion ? 0 : 0.15, type: "spring", stiffness: 280, damping: 28 }}
+        whileHover={reduceMotion ? undefined : { scale: 1.005 }}
       >
-        <span className="shrink-0 flex h-12 w-12 items-center justify-center rounded-xl bg-primary-500/20 text-primary-600" aria-hidden>
-          <Sparkles className="h-6 w-6" />
+        <span className="flex h-14 w-14 shrink-0 items-center justify-center rounded-2xl bg-gradient-to-br from-violet-500 to-primary-600 text-white shadow-lg" aria-hidden>
+          <Sparkles className="h-7 w-7" />
         </span>
         <div className="min-w-0 flex-1">
-          <p className="font-semibold text-text-primary">Need help balancing your list?</p>
-          <p className="text-sm text-text-secondary mt-0.5">
-            Our AI Counselor suggests adding at least 2 more Safety schools to increase your chances of admission.
+          <p className="font-bold text-slate-900">Need help balancing your list?</p>
+          <p className="mt-1 text-sm text-slate-600">
+            Our AI counselor can suggest safety, match, and reach mixes tailored to your profile.
           </p>
         </div>
         <Link
           href="/app/chat"
-          className="shrink-0 inline-flex items-center gap-2 rounded-xl bg-primary-500 px-4 py-2.5 text-sm font-semibold text-white hover:bg-primary-600 transition-colors"
+          className="inline-flex shrink-0 items-center gap-2 rounded-xl bg-gradient-to-r from-primary-600 to-primary-700 px-5 py-3 text-sm font-bold text-white shadow-lg shadow-primary-600/25 transition-transform hover:scale-[1.02]"
         >
-          Get AI Suggestions
+          Get AI suggestions
           <ChevronRight className="h-4 w-4" aria-hidden />
         </Link>
       </motion.div>
 
-      {/* Search section */}
       <motion.section
         id="search-colleges"
-        className="space-y-5 pt-10 border-t border-bg-border mt-10"
-        initial={{ opacity: 0 }}
+        className="mt-12 space-y-5 border-t border-slate-200/80 pt-10"
+        initial={reduceMotion ? false : { opacity: 0 }}
         animate={{ opacity: 1 }}
-        transition={{ delay: 0.4, duration: 0.4 }}
+        transition={{ delay: reduceMotion ? 0 : 0.2 }}
       >
-        <h2 className="text-xl font-bold text-text-primary">Search colleges to add</h2>
+        <div>
+          <p className="text-[11px] font-bold uppercase tracking-[0.2em] text-primary-700">Discover</p>
+          <h2 className="mt-1 text-2xl font-semibold text-slate-900">Search colleges to add</h2>
+          <p className="mt-1 text-sm text-slate-600">Filter by state or name — results open in one click.</p>
+        </div>
         <CollegesSearch basePath={basePath} onFavoriteChange={refreshFavorites} />
       </motion.section>
 
       <motion.footer
-        className="pt-12 pb-6 text-center text-sm text-text-muted"
-        initial={{ opacity: 0 }}
+        className="pb-6 pt-12 text-center text-sm text-slate-500"
+        initial={reduceMotion ? false : { opacity: 0 }}
         animate={{ opacity: 1 }}
-        transition={{ delay: 0.5 }}
+        transition={{ delay: reduceMotion ? 0 : 0.25 }}
       >
-        © {new Date().getFullYear()} MyCollegePath.ai — Your personalized roadmap to higher education.
+        © {new Date().getFullYear()} MyCollegePath — Your personalized roadmap to higher education.
       </motion.footer>
     </motion.div>
   );

@@ -36,10 +36,13 @@ export async function getDashboardUserData(
 ): Promise<DashboardUserData | null> {
   const userRef = adminDb.collection("users").doc(uid);
   const profileRef = adminDb.collection("studentProfiles").doc(uid);
-  const savedCollegesSnap = await adminDb
-    .collection("savedColleges")
-    .where("userId", "==", uid)
-    .get();
+  const [savedCollegesSnap, favoritesSnap] = await Promise.all([
+    adminDb
+      .collection("savedColleges")
+      .where("userId", "==", uid)
+      .get(),
+    adminDb.collection("users").doc(uid).collection("favorites").get(),
+  ]);
 
   const [userSnap, profileSnap] = await Promise.all([userRef.get(), profileRef.get()]);
 
@@ -47,17 +50,42 @@ export async function getDashboardUserData(
   const profileData = profileSnap.exists ? profileSnap.data() : null;
   const displayName = (profileData?.displayName as string) ?? (userData?.displayName as string);
   const email = (userData?.email as string) ?? sessionEmail ?? null;
-  const onboardingAnswers = userData?.onboardingAnswers as OnboardingSnapshot | undefined;
-  const firstName = displayName
+  const onboardingAnswers = userData?.onboardingAnswers as any;
+  const firstName = onboardingAnswers?.firstName
+    ? onboardingAnswers.firstName.trim()
+    : displayName
     ? displayName.trim().split(/\s+/)[0] || "there"
-    : (email ? email.split("@")[0].replace(/[._]/g, " ").replace(/\b\w/g, (c) => c.toUpperCase()) || "there" : "there");
+    : email
+    ? email.split("@")[0].replace(/[._]/g, " ").replace(/\b\w/g, (c) => c.toUpperCase()) || "there"
+    : "there";
 
-  const savedColleges: SavedCollegeItem[] = savedCollegesSnap.docs
-    .map((d) => {
-      const data = d.data();
-      return { collegeId: String(data.collegeId ?? ""), name: String(data.name ?? ""), savedAt: String(data.savedAt ?? "") };
-    })
-    .sort((a, b) => (b.savedAt || "").localeCompare(a.savedAt || ""));
+  const savedCollegesFromLegacy: SavedCollegeItem[] = savedCollegesSnap.docs.map((d) => {
+    const data = d.data();
+    return {
+      collegeId: String(data.collegeId ?? ""),
+      name: String(data.name ?? ""),
+      savedAt: String(data.savedAt ?? ""),
+    };
+  });
+  const savedCollegesFromFavorites: SavedCollegeItem[] = favoritesSnap.docs.map((d) => {
+    const data = d.data();
+    return {
+      collegeId: String(data.collegeId ?? d.id ?? ""),
+      name: String(data.name ?? ""),
+      savedAt: String(data.createdAt ?? ""),
+    };
+  });
+  const mergedByCollegeId = new Map<string, SavedCollegeItem>();
+  for (const item of [...savedCollegesFromLegacy, ...savedCollegesFromFavorites]) {
+    if (!item.collegeId) continue;
+    const existing = mergedByCollegeId.get(item.collegeId);
+    if (!existing || (item.savedAt || "") > (existing.savedAt || "")) {
+      mergedByCollegeId.set(item.collegeId, item);
+    }
+  }
+  const savedColleges = Array.from(mergedByCollegeId.values()).sort((a, b) =>
+    (b.savedAt || "").localeCompare(a.savedAt || "")
+  );
 
   const profile: StudentProfileSnapshot | null = profileData
     ? {

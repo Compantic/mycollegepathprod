@@ -3,6 +3,7 @@ import {
   createUserWithEmailAndPassword,
   signInWithPopup,
   GoogleAuthProvider,
+  sendPasswordResetEmail,
   signOut as firebaseSignOut,
   onAuthStateChanged,
   type User,
@@ -26,6 +27,10 @@ const googleProvider = new GoogleAuthProvider();
 
 export async function signInWithGoogle(): Promise<UserCredential> {
   return signInWithPopup(auth, googleProvider);
+}
+
+export async function sendResetPasswordEmail(email: string): Promise<void> {
+  await sendPasswordResetEmail(auth, email);
 }
 
 // ---- Session ----

@@ -3,13 +3,21 @@
 import { useEffect, useMemo, useState } from "react";
 import Link from "next/link";
 import { useSearchParams } from "next/navigation";
+import { motion, useReducedMotion } from "framer-motion";
 import { fetchWithAuth } from "@/lib/auth/fetchWithAuth";
 import type { CollegeMatch } from "@/lib/matching/types";
-import { CheckCircle2, ClipboardCheck, Loader2, Target } from "lucide-react";
+import { CheckCircle2, ClipboardCheck, Loader2, Sparkles, Target } from "lucide-react";
+import { cn } from "@/lib/utils";
 
 type MatchRun = { runId: string; createdAt: string; matches: CollegeMatch[] };
 type ApplyStatus = "not_started" | "researching" | "drafting" | "submitted";
-type Item = { collegeId: number; name: string; tier?: "reach" | "match" | "safety"; matchScore?: number; status: ApplyStatus };
+type Item = {
+  collegeId: number;
+  name: string;
+  tier?: "reach" | "match" | "safety";
+  matchScore?: number;
+  status: ApplyStatus;
+};
 
 const STATUS_OPTIONS: { value: ApplyStatus; label: string }[] = [
   { value: "not_started", label: "Not started" },
@@ -17,6 +25,12 @@ const STATUS_OPTIONS: { value: ApplyStatus; label: string }[] = [
   { value: "drafting", label: "Drafting application" },
   { value: "submitted", label: "Submitted" },
 ];
+
+const TIER_BADGE: Record<NonNullable<Item["tier"]>, string> = {
+  reach: "border-amber-200 bg-amber-50 text-amber-900",
+  match: "border-blue-200 bg-blue-50 text-blue-900",
+  safety: "border-emerald-200 bg-emerald-50 text-emerald-900",
+};
 
 function buildBalancedShortlist(matches: CollegeMatch[]): Item[] {
   const byTier = {
@@ -36,6 +50,7 @@ function buildBalancedShortlist(matches: CollegeMatch[]): Item[] {
 }
 
 export function ApplyNowPageContent() {
+  const reduceMotion = useReducedMotion();
   const searchParams = useSearchParams();
   const selectedFromQuery = searchParams.get("runId");
 
@@ -45,6 +60,32 @@ export function ApplyNowPageContent() {
   const [loading, setLoading] = useState(true);
   const [saving, setSaving] = useState(false);
   const [error, setError] = useState<string | null>(null);
+
+  const containerVariants = useMemo(
+    () => ({
+      hidden: { opacity: 0 },
+      visible: {
+        opacity: 1,
+        transition: {
+          staggerChildren: reduceMotion ? 0 : 0.05,
+          delayChildren: reduceMotion ? 0 : 0.06,
+        },
+      },
+    }),
+    [reduceMotion]
+  );
+
+  const itemVariants = useMemo(
+    () => ({
+      hidden: { opacity: 0, y: reduceMotion ? 0 : 10 },
+      visible: {
+        opacity: 1,
+        y: 0,
+        transition: { type: "spring" as const, stiffness: 320, damping: 28 },
+      },
+    }),
+    [reduceMotion]
+  );
 
   useEffect(() => {
     let cancelled = false;
@@ -58,9 +99,10 @@ export function ApplyNowPageContent() {
         if (cancelled) return;
         const loaded = (data.runs ?? []) as MatchRun[];
         setRuns(loaded);
-        const initial = selectedFromQuery && loaded.some((r) => r.runId === selectedFromQuery)
-          ? selectedFromQuery
-          : (loaded[0]?.runId ?? "");
+        const initial =
+          selectedFromQuery && loaded.some((r) => r.runId === selectedFromQuery)
+            ? selectedFromQuery
+            : (loaded[0]?.runId ?? "");
         setRunId(initial);
       } catch (err) {
         if (!cancelled) setError(err instanceof Error ? err.message : "Failed to load data");
@@ -131,79 +173,159 @@ export function ApplyNowPageContent() {
     void saveNow(next);
   }
 
+  const selectClass =
+    "w-full rounded-xl border border-slate-200/90 bg-white px-3 py-2.5 text-sm font-medium text-slate-900 shadow-sm transition-colors focus:border-primary-400 focus:outline-none focus:ring-2 focus:ring-primary-500/15";
+
   return (
-    <div className="space-y-6">
-      <section className="rounded-2xl border border-primary-200 bg-gradient-to-br from-primary-50 to-white p-6">
-        <h1 className="flex items-center gap-2 text-2xl font-bold text-text-primary">
-          <ClipboardCheck className="h-6 w-6 text-primary-500" />
-          Apply Now Shortlist
-        </h1>
-        <p className="mt-1 text-sm text-text-muted">
-          Build an apply shortlist from a matching run and track each school&apos;s application status in one place.
-        </p>
-        <div className="mt-4 grid gap-3 sm:grid-cols-3">
-          <div className="rounded-xl border border-slate-200 bg-white p-3">
-            <p className="text-xs uppercase tracking-wider text-text-muted">Selected schools</p>
-            <p className="mt-1 text-2xl font-bold text-text-primary">{items.length}</p>
+    <motion.div
+      className="space-y-6"
+      initial={{ opacity: 0, y: reduceMotion ? 0 : 10 }}
+      animate={{ opacity: 1, y: 0 }}
+      transition={{ type: "spring", stiffness: 300, damping: 28 }}
+    >
+      <section className="relative overflow-hidden rounded-3xl border border-white/80 bg-gradient-to-br from-white via-slate-50/90 to-primary-50/35 p-6 shadow-onboarding-card sm:p-8">
+        <div
+          className="absolute inset-x-0 top-0 h-1 bg-gradient-to-r from-[#0f1b2d] via-primary-600 to-amber-400"
+          aria-hidden
+        />
+        <div
+          className="pointer-events-none absolute -right-16 -top-12 h-44 w-44 rounded-full bg-primary-400/15 blur-3xl"
+          aria-hidden
+        />
+        <div
+          className="pointer-events-none absolute -left-8 bottom-0 h-32 w-32 rounded-full bg-amber-300/18 blur-3xl"
+          aria-hidden
+        />
+
+        <div className="relative flex flex-col gap-6 lg:flex-row lg:items-start lg:justify-between">
+          <div className="flex items-start gap-4 sm:gap-5">
+            <motion.div
+              className="flex h-16 w-16 shrink-0 items-center justify-center rounded-2xl bg-gradient-to-br from-primary-600 to-primary-700 text-white shadow-lg shadow-primary-600/35"
+              whileHover={reduceMotion ? undefined : { scale: 1.04 }}
+              transition={{ type: "spring", stiffness: 400, damping: 22 }}
+            >
+              <ClipboardCheck className="h-8 w-8" strokeWidth={1.75} aria-hidden />
+            </motion.div>
+            <div>
+              <p className="inline-flex items-center gap-1.5 text-[11px] font-bold uppercase tracking-[0.2em] text-primary-700">
+                <Sparkles className="h-3 w-3 text-amber-500" aria-hidden />
+                Application hub
+              </p>
+              <h1 className="mt-1 text-2xl font-semibold tracking-tight text-slate-900 sm:text-3xl">
+                Apply Now Shortlist
+              </h1>
+              <p className="mt-2 max-w-2xl text-sm leading-relaxed text-slate-600 sm:text-base">
+                <span className="italic text-amber-600/90">One list, every deadline mindset.</span> Build a shortlist
+                from a matching run and track each school&apos;s application status in one place.
+              </p>
+            </div>
           </div>
-          <div className="rounded-xl border border-slate-200 bg-white p-3">
-            <p className="text-xs uppercase tracking-wider text-text-muted">Submitted</p>
-            <p className="mt-1 text-2xl font-bold text-emerald-600">{submittedCount}</p>
+        </div>
+
+        <div className="relative mt-6 grid gap-3 sm:grid-cols-3">
+          <div className="rounded-2xl border border-blue-200 bg-blue-50/70 p-4 shadow-sm ring-1 ring-blue-100/60">
+            <p className="text-[11px] font-bold uppercase tracking-[0.15em] text-blue-900/80">Selected schools</p>
+            <p className="mt-1 text-3xl font-bold tabular-nums text-slate-900">{items.length}</p>
           </div>
-          <div className="rounded-xl border border-slate-200 bg-white p-3">
-            <p className="text-xs uppercase tracking-wider text-text-muted">Run</p>
+          <div className="rounded-2xl border border-emerald-200 bg-emerald-50/70 p-4 shadow-sm ring-1 ring-emerald-100/60">
+            <p className="text-[11px] font-bold uppercase tracking-[0.15em] text-emerald-900/80">Submitted</p>
+            <p className="mt-1 text-3xl font-bold tabular-nums text-emerald-700">{submittedCount}</p>
+          </div>
+          <div className="rounded-2xl border border-violet-200 bg-violet-50/70 p-4 shadow-sm ring-1 ring-violet-100/60">
+            <p className="text-[11px] font-bold uppercase tracking-[0.15em] text-violet-900/80">Matching run</p>
             <select
               value={runId}
               onChange={(e) => setRunId(e.target.value)}
-              className="mt-1 w-full rounded-md border border-slate-300 bg-white px-2 py-1 text-sm text-text-primary"
+              disabled={runs.length === 0}
+              className={cn(selectClass, "mt-2")}
+              aria-label="Select matching run"
             >
-              {runs.map((r) => (
-                <option key={r.runId} value={r.runId}>
-                  {new Date(r.createdAt).toLocaleString(undefined, { month: "short", day: "2-digit", hour: "2-digit", minute: "2-digit" })}
-                </option>
-              ))}
+              {runs.length === 0 ? (
+                <option value="">No runs yet</option>
+              ) : (
+                runs.map((r) => (
+                  <option key={r.runId} value={r.runId}>
+                    {new Date(r.createdAt).toLocaleString(undefined, {
+                      month: "short",
+                      day: "2-digit",
+                      hour: "2-digit",
+                      minute: "2-digit",
+                    })}
+                  </option>
+                ))
+              )}
             </select>
           </div>
         </div>
       </section>
 
       {loading && (
-        <div className="rounded-xl border border-slate-200 bg-white p-6 text-sm text-text-muted">
-          <Loader2 className="mr-2 inline h-4 w-4 animate-spin" />
-          Loading shortlist...
+        <div className="flex items-center gap-3 rounded-2xl border border-slate-200/90 bg-white/95 p-6 text-sm text-slate-600 shadow-md">
+          <Loader2 className="h-5 w-5 shrink-0 animate-spin text-primary-600" aria-hidden />
+          Loading shortlist…
         </div>
       )}
 
       {!loading && error && (
-        <div className="rounded-xl border border-red-200 bg-red-50 p-4 text-sm text-red-700">{error}</div>
+        <div className="rounded-2xl border border-red-200 bg-red-50/90 p-4 text-sm font-medium text-red-800 shadow-sm">
+          {error}
+        </div>
       )}
 
       {!loading && !error && items.length === 0 && (
-        <div className="rounded-xl border border-slate-200 bg-white p-6 text-sm text-text-muted">
-          No matching runs found. First run matching from{" "}
-          <Link href="/app/documents" className="font-semibold text-primary-600 hover:underline">
-            College Matching
-          </Link>.
+        <div className="rounded-2xl border border-dashed border-slate-200 bg-gradient-to-b from-slate-50/90 to-white p-8 text-center shadow-inner">
+          <p className="text-sm text-slate-600">
+            No matching runs found. First run matching from{" "}
+            <Link
+              href="/app/documents"
+              className="font-bold text-primary-700 underline-offset-2 hover:underline"
+            >
+              College Matching
+            </Link>
+            .
+          </p>
         </div>
       )}
 
       {!loading && items.length > 0 && (
-        <section className="space-y-3">
+        <motion.section
+          className="space-y-3"
+          variants={containerVariants}
+          initial="hidden"
+          animate="visible"
+        >
           {items.map((item) => (
-            <div key={item.collegeId} className="rounded-xl border border-slate-200 bg-white p-4">
-              <div className="flex flex-wrap items-center justify-between gap-3">
-                <div>
-                  <p className="text-base font-semibold text-text-primary">{item.name}</p>
-                  <p className="mt-0.5 flex items-center gap-2 text-xs text-text-muted">
-                    <Target className="h-3.5 w-3.5 text-primary-500" />
-                    {item.tier ? item.tier.toUpperCase() : "—"} · {item.matchScore != null ? `${item.matchScore.toFixed(1)}%` : "No score"}
-                  </p>
+            <motion.div
+              key={item.collegeId}
+              variants={itemVariants}
+              className="rounded-2xl border border-slate-200/90 bg-white/95 p-4 shadow-md backdrop-blur-sm transition-shadow hover:shadow-lg sm:p-5"
+            >
+              <div className="flex flex-wrap items-center justify-between gap-4">
+                <div className="min-w-0">
+                  <p className="text-base font-semibold text-slate-900 sm:text-lg">{item.name}</p>
+                  <div className="mt-1.5 flex flex-wrap items-center gap-2 text-xs text-slate-600">
+                    {item.tier && (
+                      <span
+                        className={cn(
+                          "rounded-full border px-2 py-0.5 text-[11px] font-bold uppercase tracking-wide",
+                          TIER_BADGE[item.tier]
+                        )}
+                      >
+                        {item.tier}
+                      </span>
+                    )}
+                    <span className="inline-flex items-center gap-1.5 font-medium text-slate-700">
+                      <Target className="h-3.5 w-3.5 text-primary-600" aria-hidden />
+                      {item.matchScore != null ? `${item.matchScore.toFixed(1)}% match` : "No score"}
+                    </span>
+                  </div>
                 </div>
-                <div className="flex items-center gap-2">
+                <div className="flex flex-wrap items-center gap-2">
                   <select
                     value={item.status}
                     onChange={(e) => updateStatus(item.collegeId, e.target.value as ApplyStatus)}
-                    className="rounded-lg border border-slate-300 bg-white px-3 py-2 text-sm text-text-primary"
+                    className={selectClass}
+                    aria-label={`Status for ${item.name}`}
                   >
                     {STATUS_OPTIONS.map((opt) => (
                       <option key={opt.value} value={opt.value}>
@@ -213,23 +335,25 @@ export function ApplyNowPageContent() {
                   </select>
                   <Link
                     href={`/app/colleges/${item.collegeId}`}
-                    className="rounded-lg border border-primary-200 bg-primary-50 px-3 py-2 text-sm font-semibold text-primary-700 hover:bg-primary-100"
+                    className="inline-flex items-center justify-center rounded-xl border border-primary-500/80 bg-white px-4 py-2.5 text-sm font-bold text-primary-700 shadow-sm transition-colors hover:bg-primary-50"
                   >
                     View school
                   </Link>
                 </div>
               </div>
               {item.status === "submitted" && (
-                <p className="mt-2 inline-flex items-center gap-1 rounded-full bg-emerald-100 px-2.5 py-1 text-xs font-semibold text-emerald-700">
-                  <CheckCircle2 className="h-3.5 w-3.5" />
+                <p className="mt-3 inline-flex items-center gap-1.5 rounded-full border border-emerald-200 bg-emerald-50 px-3 py-1 text-xs font-bold text-emerald-800">
+                  <CheckCircle2 className="h-3.5 w-3.5" aria-hidden />
                   Submitted
                 </p>
               )}
-            </div>
+            </motion.div>
           ))}
-          <p className="text-xs text-text-muted">{saving ? "Saving changes..." : "All changes saved."}</p>
-        </section>
+          <p className="text-center text-xs font-medium text-slate-500 sm:text-left">
+            {saving ? "Saving changes…" : "All changes saved."}
+          </p>
+        </motion.section>
       )}
-    </div>
+    </motion.div>
   );
 }

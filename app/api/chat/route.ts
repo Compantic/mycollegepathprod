@@ -71,18 +71,18 @@ export async function POST(req: NextRequest) {
     logApiError("chat", {}, err);
     if (status === 429) {
       return NextResponse.json(
-        { error: err instanceof Error ? err.message : "Too many requests. Try again in a moment." },
+        { error: "Too many requests. Try again in a moment." },
         { status: 429 }
       );
     }
     if (status === 503) {
       return NextResponse.json(
-        { error: err instanceof Error ? err.message : "Chat service temporarily unavailable. Please try again later." },
+        { error: "Chat service temporarily unavailable. Please try again later." },
         { status: 503 }
       );
     }
     return NextResponse.json(
-      { error: err instanceof Error ? err.message : "Chat failed" },
+      { error: "Something went wrong while generating a response. Please try again." },
       { status: 500 }
     );
   }

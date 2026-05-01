@@ -9,10 +9,7 @@ export const metadata: Metadata = {
   title: "MyCollegePath – Your College Admissions Coach",
   description: "Find and evaluate colleges with personalized matching and AI guidance.",
   icons: {
-    icon: [
-      { url: "/icon.svg", type: "image/svg+xml" },
-      { url: "/icon.png", type: "image/png", sizes: "32x32" },
-    ],
+    icon: [{ url: "/icon.png", type: "image/png", sizes: "1024x1024" }],
     apple: "/icon.png",
   },
 };

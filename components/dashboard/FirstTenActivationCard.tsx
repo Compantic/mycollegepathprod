@@ -1,87 +1,118 @@
 "use client";
 
 import Link from "next/link";
-import { CheckCircle2, X } from "lucide-react";
+import { motion, useReducedMotion } from "framer-motion";
+import { CheckCircle2, Sparkles, X } from "lucide-react";
 
 export function FirstTenActivationCard({
   steps,
   done,
-  onPersist,
+  onDismiss,
 }: {
   steps: readonly { id: string; label: string; href: string }[];
   done: string[];
-  onPersist: (nextDone: string[], dismissed?: boolean) => void;
+  onDismiss: () => void;
 }) {
+  const reduceMotion = useReducedMotion();
+  const pct = (done.length / steps.length) * 100;
+
   return (
-    <section className="rounded-2xl border border-primary-200 bg-gradient-to-br from-white via-primary-50/40 to-white p-5 shadow-sm">
-      <div className="flex items-start justify-between gap-3">
+    <section className="relative overflow-hidden rounded-3xl border border-white/80 bg-gradient-to-br from-white/95 via-blue-50/40 to-amber-50/30 p-5 shadow-onboarding-card backdrop-blur-sm sm:p-6">
+      <div className="absolute inset-x-0 top-0 h-1 bg-gradient-to-r from-primary-600 via-amber-300 to-primary-500" aria-hidden />
+      <div className="pointer-events-none absolute -right-16 top-8 h-40 w-40 rounded-full bg-primary-400/15 blur-3xl animate-onboarding-pulse-soft" />
+
+      <div className="relative flex flex-col gap-4 sm:flex-row sm:items-start sm:justify-between">
         <div>
-          <p className="text-xs font-semibold uppercase tracking-wider text-primary-600">
-            First 10 Minutes Activation
+          <p className="inline-flex items-center gap-1.5 text-[11px] font-bold uppercase tracking-[0.2em] text-primary-700">
+            <Sparkles className="h-3.5 w-3.5 text-amber-500" aria-hidden />
+            First 10 minutes
           </p>
-          <h2 className="mt-1 text-lg font-bold text-text-primary">
-            Welcome — let&apos;s knock out your first steps
+          <h2 className="mt-2 text-xl font-semibold tracking-tight text-slate-900 sm:text-2xl">
+            Welcome — knock out your first steps
           </h2>
-          <p className="mt-1 text-sm text-text-muted">
-            Finishing this mini checklist takes about 10 minutes on average and reduces first-session drop-off.
+          <p className="mt-2 max-w-xl text-sm leading-relaxed text-slate-600">
+            Finishing this checklist takes about <span className="font-semibold text-slate-800">10 minutes</span> on average
+            and unlocks better matches and AI guidance.
           </p>
         </div>
         <button
           type="button"
-          onClick={() => onPersist(done, true)}
-          className="inline-flex items-center gap-1 rounded-lg border border-slate-200 bg-white px-2.5 py-1.5 text-xs font-medium text-text-muted hover:bg-slate-50"
+          onClick={onDismiss}
+          className="inline-flex shrink-0 items-center gap-1.5 rounded-xl border border-slate-200 bg-white/90 px-3 py-2 text-xs font-semibold text-slate-600 shadow-sm transition-all hover:border-slate-300 hover:bg-white"
         >
-          <X className="h-3.5 w-3.5" />
+          <X className="h-3.5 w-3.5" aria-hidden />
           Dismiss
         </button>
       </div>
 
-      <div className="mt-4 h-2 w-full overflow-hidden rounded-full bg-slate-200">
-        <div
-          className="h-full rounded-full bg-primary-500 transition-[width] duration-500"
-          style={{ width: `${(done.length / steps.length) * 100}%` }}
-        />
+      <div className="relative mt-5">
+        <div className="h-2.5 w-full overflow-hidden rounded-full bg-slate-200/90 shadow-inner">
+          <motion.div
+            className="h-full rounded-full bg-gradient-to-r from-primary-600 via-primary-500 to-emerald-500"
+            initial={false}
+            animate={{ width: `${pct}%` }}
+            transition={{ type: "spring", stiffness: 120, damping: 22 }}
+          />
+        </div>
+        <p className="mt-2 text-xs font-semibold text-slate-500">
+          <span className="tabular-nums text-primary-700">{done.length}</span> / {steps.length} complete
+        </p>
       </div>
-      <p className="mt-1 text-xs text-text-muted">
-        {done.length}/{steps.length} complete
-      </p>
 
-      <div className="mt-4 grid gap-2 sm:grid-cols-2">
-        {steps.map((step) => {
+      <div className="mt-5 grid items-start gap-3 sm:grid-cols-2">
+        {steps.map((step, index) => {
           const checked = done.includes(step.id);
           return (
-            <div
+            <motion.div
               key={step.id}
-              className={`flex items-center justify-between rounded-xl border p-3 ${
-                checked ? "border-emerald-200 bg-emerald-50/70" : "border-slate-200 bg-white"
-              }`}
+              initial={reduceMotion ? false : { opacity: 0, y: 10 }}
+              animate={{ opacity: 1, y: 0 }}
+              transition={{
+                delay: reduceMotion ? 0 : 0.05 + index * 0.04,
+                type: "spring",
+                stiffness: 380,
+                damping: 30,
+              }}
+              whileHover={reduceMotion ? undefined : { scale: 1.01 }}
+              className={cnCard(checked)}
             >
-              <label className="flex items-center gap-2 text-sm font-medium text-text-primary">
-                <input
-                  type="checkbox"
-                  checked={checked}
-                  onChange={() => {
-                    const next = checked ? done.filter((x) => x !== step.id) : [...done, step.id];
-                    onPersist(next);
-                  }}
-                  className="h-4 w-4 rounded border-slate-300 text-primary-600 focus:ring-primary-500/40"
-                />
-                <span className={checked ? "line-through text-text-muted" : ""}>{step.label}</span>
-              </label>
-              <Link href={step.href} className="text-xs font-semibold text-primary-600 hover:underline">
+              <div className="flex min-w-0 flex-1 items-start gap-3">
+                {checked ? (
+                  <CheckCircle2 className="mt-0.5 h-4 w-4 shrink-0 text-emerald-600" aria-hidden />
+                ) : (
+                  <span className="mt-0.5 h-4 w-4 shrink-0 rounded border border-slate-300 bg-white" aria-hidden />
+                )}
+                <span className={checked ? "text-sm font-medium text-emerald-900 line-through opacity-80" : "text-sm font-semibold text-slate-800"}>
+                  {step.label}
+                </span>
+              </div>
+              <Link
+                href={step.href}
+                className="shrink-0 rounded-lg bg-primary-600/10 px-2.5 py-1 text-xs font-bold text-primary-700 transition-colors hover:bg-primary-600 hover:text-white"
+              >
                 Open
               </Link>
-            </div>
+            </motion.div>
           );
         })}
       </div>
 
       {done.length === steps.length && (
-        <div className="mt-3 inline-flex items-center gap-2 rounded-full bg-emerald-100 px-3 py-1 text-xs font-semibold text-emerald-700">
-          <CheckCircle2 className="h-3.5 w-3.5" />
-          Nice — activation checklist complete.
-        </div>
+        <motion.div
+          className="mt-4 inline-flex items-center gap-2 rounded-full border border-emerald-200 bg-emerald-50 px-4 py-2 text-sm font-semibold text-emerald-900"
+          initial={reduceMotion ? false : { opacity: 0, scale: 0.96 }}
+          animate={{ opacity: 1, scale: 1 }}
+        >
+          <CheckCircle2 className="h-4 w-4 text-emerald-600" aria-hidden />
+          Activation complete — you&apos;re set.
+        </motion.div>
       )}
     </section>
   );
+}
+
+function cnCard(checked: boolean) {
+  return checked
+    ? "flex items-center justify-between gap-3 rounded-2xl border border-emerald-200 bg-emerald-50/80 p-3.5 shadow-sm"
+    : "flex items-center justify-between gap-3 rounded-2xl border border-slate-200/90 bg-white/90 p-3.5 shadow-sm transition-shadow hover:shadow-md";
 }

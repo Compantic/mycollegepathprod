@@ -1,5 +1,38 @@
 import { redirect } from "next/navigation";
+import { getSessionUserFromCookies } from "@/lib/firebase/serverAuth";
+import { getStudentProfileForServer, getOnboardingAnswersForServer } from "@/lib/firebase/serverFirestore";
+import { CollegeMatchingView } from "@/components/matching/CollegeMatchingView";
 
 export default function MatchingPage() {
-  redirect("/app/documents");
+  return <MatchingContent />;
+}
+
+async function MatchingContent() {
+  const user = await getSessionUserFromCookies();
+  if (!user) redirect("/login?from=/app/matching");
+
+  const [profile, onboarding] = await Promise.all([
+    getStudentProfileForServer(user.uid),
+    getOnboardingAnswersForServer(user.uid),
+  ]);
+
+  const mergedProfile = {
+    ...profile,
+    preferredStates: profile?.preferredStates?.length
+      ? profile.preferredStates
+      : onboarding?.locationPreferenceStates?.length
+        ? onboarding.locationPreferenceStates
+        : (onboarding?.preferredStates || []),
+    preferredSize: profile?.preferredSize
+      || onboarding?.preferredSize
+      || (onboarding?.campusUrbanSuburbanRural?.length ? onboarding.campusUrbanSuburbanRural[0] : undefined),
+    preferredMajors: profile?.preferredMajors?.length
+      ? profile.preferredMajors
+      : (onboarding?.areasOfInterest || []),
+    gpa: profile?.gpa || onboarding?.gpa,
+    satScore: profile?.satScore || onboarding?.satTotal || onboarding?.satScore,
+    actScore: profile?.actScore || onboarding?.actComposite || onboarding?.actScore,
+  };
+
+  return <CollegeMatchingView profile={mergedProfile} />;
 }

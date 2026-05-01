@@ -77,40 +77,47 @@
   100% { background-position: -200% 0; }
 }
 
-/* Onboarding: modern, animated form styles */
+/* Onboarding: landing-aligned — slate neutrals, primary + amber accents */
 @layer components {
   .onboarding-input {
-    @apply transition-all duration-300 rounded-xl border-2 border-bg-border bg-white px-4 py-3 text-text-primary placeholder:text-text-muted/90;
+    @apply transition-all duration-300 rounded-xl border border-slate-200/90 bg-white px-4 py-3 text-[15px] leading-normal text-slate-900 shadow-sm placeholder:text-slate-400;
     @apply focus:border-primary-500 focus:ring-4 focus:ring-primary-500/15 focus:outline-none;
-    @apply hover:border-primary-500/50 hover:shadow-sm;
+    @apply hover:border-slate-300 hover:shadow-md;
   }
   .onboarding-select {
-    @apply transition-all duration-300 w-full rounded-xl border-2 border-bg-border bg-white px-4 py-3 pr-10 text-text-primary appearance-none cursor-pointer;
+    @apply box-border transition-all duration-300 w-full min-h-12 rounded-xl border border-slate-200/90 bg-white px-4 py-3.5 pr-10 text-[15px] leading-relaxed text-slate-900 appearance-none cursor-pointer shadow-sm;
     @apply focus:border-primary-500 focus:ring-4 focus:ring-primary-500/15 focus:outline-none;
-    @apply hover:border-primary-500/50 hover:shadow-sm;
+    @apply hover:border-slate-300 hover:shadow-md;
     background-image: url("data:image/svg+xml,%3Csvg xmlns='http://www.w3.org/2000/svg' width='20' height='20' viewBox='0 0 24 24' fill='none' stroke='%2394A3B8' stroke-width='2' stroke-linecap='round' stroke-linejoin='round'%3E%3Cpath d='m6 9 6 6 6-6'/%3E%3C/svg%3E");
     background-repeat: no-repeat;
     background-position: right 12px center;
   }
   .onboarding-select option {
-    @apply text-text-primary bg-white;
+    @apply text-slate-900 bg-white;
   }
   .onboarding-pill {
-    @apply transition-all duration-300 rounded-full px-4 py-2.5 text-sm font-medium border-2 cursor-pointer;
-    @apply border-bg-border bg-white text-text-secondary;
-    @apply hover:border-primary-500/60 hover:bg-primary-500/10 hover:text-primary-600 hover:scale-[1.02] active:scale-[0.98];
+    @apply transition-all duration-300 rounded-full px-4 py-2.5 text-sm font-semibold border cursor-pointer;
+    @apply border-slate-200 bg-white text-slate-600 shadow-sm;
+    @apply hover:border-primary-400 hover:bg-primary-500/5 hover:text-primary-700 hover:shadow-md active:scale-[0.98];
   }
   .onboarding-pill-selected {
-    @apply border-primary-500 bg-primary-500/15 text-primary-600 border-2 shadow-sm;
-    box-shadow: 0 0 0 3px rgba(43, 95, 217, 0.15);
+    @apply border-primary-600 text-primary-700 shadow-md;
+    background: linear-gradient(to bottom right, rgba(43, 95, 217, 0.1), rgba(252, 211, 77, 0.14));
+    box-shadow:
+      0 0 0 1px rgba(43, 95, 217, 0.12),
+      0 0 0 4px rgba(252, 211, 77, 0.35);
   }
   .onboarding-option-card {
-    @apply relative overflow-hidden transition-all duration-300 rounded-xl border-2 border-bg-border bg-white px-4 py-3.5 text-sm font-medium text-text-primary cursor-pointer text-center;
-    @apply hover:border-primary-500/60 hover:bg-primary-500/5 hover:shadow-md hover:scale-[1.02] active:scale-[0.99];
+    @apply relative overflow-hidden transition-all duration-300 rounded-2xl border border-slate-200/90 bg-white px-4 py-4 text-sm font-semibold text-slate-900 cursor-pointer text-center shadow-sm;
+    @apply hover:border-primary-400 hover:bg-primary-500/5 hover:shadow-lg hover:-translate-y-0.5 active:translate-y-0;
   }
   .onboarding-option-card-selected {
-    @apply border-primary-500 bg-primary-500/15 text-primary-600;
-    box-shadow: 0 0 0 3px rgba(43, 95, 217, 0.12);
+    @apply border-primary-600 text-primary-700;
+    background: linear-gradient(to bottom right, rgba(43, 95, 217, 0.1), rgba(253, 230, 138, 0.28));
+    box-shadow:
+      0 0 0 1px rgba(31, 77, 184, 0.2),
+      0 8px 28px rgba(15, 27, 45, 0.08),
+      0 0 0 3px rgba(252, 211, 77, 0.4);
   }
   .onboarding-option-card::after {
     content: "";
@@ -124,10 +131,53 @@
   .onboarding-option-card:hover::after {
     transform: translateX(120%);
   }
+  /* react-day-picker: larger cells + brand accent (used by Calendar in onboarding) */
+  .rdp-onboarding {
+    --rdp-cell-size: 3rem;
+    --rdp-caption-font-size: 1.125rem;
+    --rdp-accent-color: #2b5fd9;
+    --rdp-background-color: rgba(43, 95, 217, 0.1);
+    margin: 0;
+  }
+
+  /* Month + year dropdowns (captionLayout="dropdown") — visible hit targets */
+  .rdp-onboarding .rdp-caption {
+    display: flex;
+    justify-content: center;
+    padding: 0.25rem 0.5rem 0.5rem;
+  }
+  .rdp-onboarding .rdp-caption_dropdowns {
+    display: flex;
+    flex-wrap: wrap;
+    align-items: center;
+    justify-content: center;
+    gap: 0.75rem;
+  }
+  .rdp-onboarding .rdp-dropdown_month .rdp-caption_label,
+  .rdp-onboarding .rdp-dropdown_year .rdp-caption_label {
+    display: inline-flex;
+    align-items: center;
+    justify-content: center;
+    gap: 0.35rem;
+    min-height: 2.75rem;
+    padding: 0.35rem 0.85rem;
+    border-radius: 0.75rem;
+    border: 2px solid #e5eaf2;
+    background: #fff;
+    font-size: 0.9375rem;
+    font-weight: 600;
+    color: #0f172a;
+  }
+  .rdp-onboarding .rdp-dropdown_month .rdp-caption_label {
+    min-width: 9rem;
+  }
+  .rdp-onboarding .rdp-dropdown_year .rdp-caption_label {
+    min-width: 5.75rem;
+  }
+
   .onboarding-icon-box {
-    @apply flex h-11 w-11 shrink-0 items-center justify-center rounded-xl border-2 border-bg-border text-primary-500/90 transition-all duration-300;
-    @apply bg-gradient-to-br from-white to-secondary-100/80;
-    @apply hover:border-primary-500/50 hover:shadow-sm;
+    @apply flex h-11 w-11 shrink-0 items-center justify-center rounded-xl border border-blue-200 bg-blue-50 text-primary-700 transition-all duration-300 shadow-sm;
+    @apply hover:border-primary-400 hover:shadow-md hover:scale-[1.03];
   }
   .onboarding-slider {
     @apply h-3 w-full rounded-full appearance-none bg-gradient-to-r from-secondary-200 to-secondary-300 transition-all duration-300;
@@ -141,17 +191,24 @@
     @apply scale-105;
   }
   .onboarding-card {
-    @apply rounded-2xl border border-bg-border overflow-hidden transition-all duration-500;
-    background: linear-gradient(135deg, rgba(255,255,255,0.95) 0%, rgba(255,255,255,0.88) 100%);
-    backdrop-filter: blur(12px);
-    -webkit-backdrop-filter: blur(12px);
-    box-shadow: 0 4px 24px rgba(15, 23, 42, 0.06), 0 0 0 1px rgba(43, 95, 217, 0.06);
+    @apply relative rounded-3xl border border-white/80 overflow-hidden transition-shadow duration-500;
+    background:
+      linear-gradient(165deg, rgba(255, 255, 255, 0.98) 0%, rgba(247, 249, 252, 0.92) 45%, rgba(255, 255, 255, 0.96) 100%);
+    backdrop-filter: blur(16px);
+    -webkit-backdrop-filter: blur(16px);
+    box-shadow:
+      0 25px 50px -12px rgba(15, 27, 45, 0.12),
+      0 0 0 1px rgba(255, 255, 255, 0.85) inset,
+      0 0 40px rgba(43, 95, 217, 0.06);
   }
   .onboarding-card:focus-within {
-    box-shadow: 0 12px 40px rgba(43, 95, 217, 0.14), 0 0 0 2px rgba(43, 95, 217, 0.2);
+    box-shadow:
+      0 32px 64px -12px rgba(15, 27, 45, 0.14),
+      0 0 0 1px rgba(43, 95, 217, 0.15) inset,
+      0 0 48px rgba(43, 95, 217, 0.1);
   }
   .onboarding-section-title {
-    @apply text-sm font-semibold text-text-primary flex items-center gap-2;
+    @apply text-sm font-bold uppercase tracking-wider text-slate-800 flex items-center gap-2;
   }
   /* Staggered entrance for step content */
   .animate-in-stagger > * {

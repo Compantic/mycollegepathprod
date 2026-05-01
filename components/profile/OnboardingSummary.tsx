@@ -1,14 +1,13 @@
 "use client";
 
-import { ClipboardList, Compass, GraduationCap, Lightbulb, Target, Users } from "lucide-react";
+import { ClipboardList, Compass, GraduationCap, Lightbulb, Target, Users, Edit3, ChevronRight } from "lucide-react";
 import type { OnboardingSnapshot } from "@/lib/onboarding/types";
-import { GlassCard } from "@/components/ui/GlassCard";
 import { cn } from "@/lib/utils";
 
 interface OnboardingSummaryProps {
   answers: OnboardingSnapshot;
-  /** When provided, "Edit section" calls this with the step number (1–6) so the parent can e.g. open that onboarding step. */
   onEditSection?: (step: number) => void;
+  hideEdit?: boolean;
 }
 
 interface SectionProps {
@@ -17,34 +16,35 @@ interface SectionProps {
   step: number;
   children: React.ReactNode;
   onEditSection?: (step: number) => void;
+  hideEdit?: boolean;
 }
 
-function Section({ title, icon, step, children, onEditSection }: SectionProps) {
-  function handleEditClick() {
-    onEditSection?.(step);
-  }
+function Section({ title, icon, step, children, onEditSection, hideEdit }: SectionProps) {
   return (
-    <GlassCard className="p-5 sm:p-6 space-y-4" variant="default">
-      <div className="flex items-center justify-between gap-3">
-        <div className="flex items-center gap-3">
-          <div className="flex h-9 w-9 items-center justify-center rounded-xl bg-primary-500/10 text-primary-600">
+    <div className="group relative overflow-hidden rounded-[2.5rem] border border-white/60 bg-white/70 p-8 shadow-[0_8px_32px_rgba(0,0,0,0.04)] backdrop-blur-3xl transition-all hover:shadow-[0_12px_48px_rgba(0,0,0,0.08)]">
+      <div className="flex items-center justify-between mb-8">
+        <div className="flex items-center gap-4">
+          <div className="flex h-12 w-12 items-center justify-center rounded-2xl bg-primary-50 text-primary-600 ring-1 ring-primary-100 transition-transform group-hover:scale-110">
             {icon}
           </div>
           <div>
-            <h3 className="text-sm sm:text-base font-semibold text-text-primary">{title}</h3>
-            <p className="text-xs text-text-muted">Step {step}</p>
+            <h3 className="text-xl font-black text-slate-900 leading-none">{title}</h3>
+            <p className="mt-1.5 text-[10px] font-black uppercase tracking-widest text-slate-400">Section {step}</p>
           </div>
         </div>
-        <button
-          type="button"
-          onClick={handleEditClick}
-          className="inline-flex items-center gap-1.5 rounded-full border border-primary-500/20 bg-white px-3 py-1.5 text-xs font-medium text-primary-600 shadow-sm hover:border-primary-500 hover:bg-primary-50 focus:outline-none focus:ring-2 focus:ring-primary-500/30"
-        >
-          Edit section
-        </button>
+        {!hideEdit && (
+          <button
+            type="button"
+            onClick={() => onEditSection?.(step)}
+            className="flex items-center gap-2 rounded-xl bg-slate-100 px-4 py-2 text-xs font-black text-slate-500 transition-all hover:bg-primary-600 hover:text-white"
+          >
+            <Edit3 className="h-3.5 w-3.5" />
+            Edit
+          </button>
+        )}
       </div>
-      <div className="grid gap-3 sm:grid-cols-2">{children}</div>
-    </GlassCard>
+      <div className="grid gap-4 sm:grid-cols-2">{children}</div>
+    </div>
   );
 }
 
@@ -57,23 +57,33 @@ function Field({
 }) {
   if (value == null || value === "" || (Array.isArray(value) && value.length === 0)) return null;
   return (
-    <div className="rounded-card border border-bg-border bg-bg-main px-3 py-2.5">
-      <p className="text-[11px] font-semibold uppercase tracking-wide text-text-muted mb-1">{label}</p>
-      <div className="text-sm font-medium text-text-primary break-words">{value}</div>
+    <div className="group/field rounded-2xl border border-slate-100 bg-white/50 p-4 transition-colors hover:border-primary-200 hover:bg-white">
+      <p className="text-[9px] font-black uppercase tracking-[0.15em] text-slate-400 mb-1.5 group-hover/field:text-primary-500">{label}</p>
+      <div className="text-sm font-black text-slate-800 break-words leading-relaxed">{value}</div>
     </div>
   );
 }
 
-export function OnboardingSummary({ answers, onEditSection }: OnboardingSummaryProps) {
+export function OnboardingSummary({ answers, onEditSection, hideEdit }: OnboardingSummaryProps) {
   const {
+    firstName,
+    lastName,
+    dateOfBirth,
+    gender,
+    genderOther,
+    country,
+    state,
+    city,
+    currentHighSchool,
+    expectedGraduationYear,
     gradeLevel,
     lifeSatisfaction,
     addingToLife,
     eliminatingFromLife,
     academicSuccessCrucial,
     naturalSkills,
-    favoriteClass,
-    workInclination,
+    favoriteSubjectsRank,
+    preferenceCoreType,
     intellectualStructuredVsOpen,
     intellectualLectureVsDiscussion,
     intellectualResearchVsApplication,
@@ -89,9 +99,9 @@ export function OnboardingSummary({ answers, onEditSection }: OnboardingSummaryP
     targetDegree,
     knowCoursesStandOut,
     knowActivitiesStandOut,
-    placementRatesImportance,
+    studySkillsConfidence,
+    focusDifficulty,
     gpa,
-    gpaScale,
     examsTaken,
     satTotal,
     actComposite,
@@ -101,287 +111,114 @@ export function OnboardingSummary({ answers, onEditSection }: OnboardingSummaryP
     rigorousIbCompleted,
     rigorousHonorsCompleted,
     activityTypes,
-    activityRanking,
-    awardsSchool,
-    awardsState,
-    awardsNational,
-    awardsInternational,
-    admissionProcessConfidence,
-    selectivityImportance,
+    awardsConsolidated,
+    tutoringBenefit,
     locationPreferenceStates,
     campusUrbanSuburbanRural,
     campusLectureVsSeminar,
     campusCoreVsOpen,
-    campusQuizzesVsExams,
     campusIntensityVsBalanced,
+    collegeSectorPreference,
+    degreeLengthPreference,
+    internationalOpenness,
+    budgetPerYear,
+    familyIncome,
+    fafsaEligibility,
     hasCollegeList,
     collegeListReachMatchSafety,
     collegeListVisited,
     collegeListWhatLike,
     applicationStrategy,
+    admissionProcessConfidence,
+    selectivityImportance,
   } = answers;
 
   const lifeSatLabel = lifeSatisfaction != null ? `${lifeSatisfaction} / 10` : null;
   const careerConfLabel = careerConfidence != null ? `${careerConfidence} / 10` : null;
-  const coursesLabel =
-    knowCoursesStandOut === "Yes"
-      ? "Yes"
-      : knowCoursesStandOut === "No"
-      ? "No"
-      : knowCoursesStandOut === "Somewhat"
-      ? "Somewhat"
-      : null;
-  const tutoringAwarenessLabel =
-    knowActivitiesStandOut != null ? `${knowActivitiesStandOut} / 10` : null;
-  const placementLabel =
-    placementRatesImportance != null ? `${placementRatesImportance} / 10` : null;
-  const admissionConfLabel =
-    admissionProcessConfidence != null ? `${admissionProcessConfidence} / 10` : null;
-  const selectivityLabel =
-    selectivityImportance != null ? `${selectivityImportance} / 10` : null;
+  const studyLabel = studySkillsConfidence != null ? `${studySkillsConfidence} / 10` : null;
+  const focusLabel = focusDifficulty != null ? `${focusDifficulty} / 10` : null;
+  const coursesLabel = knowCoursesStandOut;
+  const activitiesAwareLabel = knowActivitiesStandOut != null ? `${knowActivitiesStandOut} / 10` : null;
+  const admissionConfLabel = admissionProcessConfidence != null ? `${admissionProcessConfidence} / 10` : null;
+  const selectivityLabel = selectivityImportance != null ? `${selectivityImportance} / 10` : null;
 
   const activitiesSummary =
     activityTypes && activityTypes.length
-      ? `${activityTypes.length} activity type${activityTypes.length > 1 ? "s" : ""} listed`
+      ? activityTypes.map((a) => a.type).join(", ")
       : null;
 
-  const awardsCount =
-    (awardsSchool?.length ?? 0) +
-    (awardsState?.length ?? 0) +
-    (awardsNational?.length ?? 0) +
-    (awardsInternational?.length ?? 0);
-
+  const awardsCount = awardsConsolidated?.length ?? 0;
   const awardsSummary = awardsCount ? `${awardsCount} award${awardsCount > 1 ? "s" : ""}` : null;
-
-  const activityRankingLabel =
-    activityRanking && activityRanking.length ? activityRanking.join(" → ") : null;
-
-  const workInclinationLabel =
-    workInclination && workInclination.length ? workInclination.join(" → ") : null;
-
-  const interestLabel =
-    areasOfInterest && areasOfInterest.length ? areasOfInterest.join(", ") : null;
-
-  const examsLabel =
-    examsTaken && examsTaken.length
-      ? `${examsTaken.length} exam type${examsTaken.length > 1 ? "s" : ""}: ${examsTaken.join(
-          ", "
-        )}`
-      : null;
-
-  const locationLabel =
-    locationPreferenceStates && locationPreferenceStates.length
-      ? locationPreferenceStates.join(", ")
-      : null;
+  const interestLabel = areasOfInterest?.length ? areasOfInterest.join(", ") : null;
+  const examsLabel = examsTaken?.length ? examsTaken.join(", ") : null;
+  const locationLabel = locationPreferenceStates?.length ? locationPreferenceStates.join(", ") : null;
+  const favSubjectsLabel = favoriteSubjectsRank?.filter(Boolean).join(" → ") || null;
 
   return (
-    <div className={cn("space-y-4 sm:space-y-5")}>
-      <div className="flex items-baseline justify-between gap-3">
-        <div>
-          <h2 className="text-base sm:text-lg font-bold text-text-primary flex items-center gap-2">
-            <ClipboardList className="h-5 w-5 text-primary-500" />
-            Your questionnaire answers
-          </h2>
-          <p className="mt-1 text-xs sm:text-sm text-text-muted">
-            This is a structured view of everything you shared in onboarding. You can jump back into
-            any step to update your answers.
-          </p>
-        </div>
+    <div className="space-y-12 pb-12">
+      <div className="flex flex-col gap-2">
+        <h2 className="text-3xl font-black text-slate-900 tracking-tighter flex items-center gap-3">
+          <div className="size-10 rounded-xl bg-slate-900 text-white flex items-center justify-center">
+            <ClipboardList className="size-5" />
+          </div>
+          Comprehensive Record
+        </h2>
+        <p className="text-sm font-medium text-slate-500 max-w-2xl leading-relaxed">
+          Deep-dive into your college preparation profile. This data powers your AI matching and roadmap generation.
+        </p>
       </div>
 
-      <div className="grid gap-4 lg:grid-cols-2">
-        {/* Step 1 – Life outlook */}
-        <Section
-          title="Basic information & life outlook"
-          icon={<Lightbulb className="h-4 w-4" aria-hidden />}
-          step={1}
-          onEditSection={onEditSection}
-        >
-          <Field label="Current grade level" value={gradeLevel} />
-          <Field label="Life satisfaction" value={lifeSatLabel} />
-          <Field label="If you could add anything to your life" value={addingToLife} />
-          <Field
-            label="What you would remove to reduce burden"
-            value={eliminatingFromLife}
-          />
-          <Field
-            label="Is academic success crucial for your happiness?"
-            value={academicSuccessCrucial}
-          />
-          <Field label="What you are naturally good at" value={naturalSkills} />
-          <Field label="Favorite class" value={favoriteClass} />
+      <div className="grid gap-6 lg:grid-cols-2">
+        <Section title="Identity & Basics" icon={<Lightbulb className="size-5" />} step={1} onEditSection={onEditSection} hideEdit={hideEdit}>
+          <Field label="Full Name" value={[firstName, lastName].filter(Boolean).join(" ") || null} />
+          <Field label="Date of Birth" value={dateOfBirth} />
+          <Field label="Gender" value={gender ? `${gender}${gender === "Other" && genderOther ? ` — ${genderOther}` : ""}` : null} />
+          <Field label="Location" value={[city, state, country].filter(Boolean).join(", ") || null} />
+          <Field label="Current high school" value={currentHighSchool} />
+          <Field label="Grade level" value={gradeLevel} />
+          <Field label="Graduation year" value={expectedGraduationYear != null ? String(expectedGraduationYear) : null} />
         </Section>
 
-        {/* Step 2 – Character & learning profile */}
-        <Section
-          title="Character & learning profile"
-          icon={<Users className="h-4 w-4" aria-hidden />}
-          step={2}
-          onEditSection={onEditSection}
-        >
-          <Field label="Work inclination" value={workInclinationLabel} />
-          <Field
-            label="Structured vs. open-ended"
-            value={intellectualStructuredVsOpen}
-          />
-          <Field
-            label="Lecture-based vs. discussion-based"
-            value={intellectualLectureVsDiscussion}
-          />
-          <Field
-            label="Research-driven vs. application-driven"
-            value={intellectualResearchVsApplication}
-          />
-          <Field
-            label="Theoretical vs. hands-on"
-            value={intellectualTheoreticalVsHandsOn}
-          />
-          <Field
-            label="Competitive or collaborative"
-            value={socialCompetitiveVsCollaborative}
-          />
-          <Field
-            label="Introverted or socially energized"
-            value={socialIntrovertedVsSocial}
-          />
-          <Field label="Large networks vs. tight circles" value={socialLargeVsTight} />
-          <Field label="Independent vs. guided" value={socialIndependentVsGuided} />
+        <Section title="Psychology & Signals" icon={<Users className="size-5" />} step={2} onEditSection={onEditSection} hideEdit={hideEdit}>
+          <Field label="Life Satisfaction" value={lifeSatLabel} />
+          <Field label="Add to life" value={addingToLife} />
+          <Field label="Remove from life" value={eliminatingFromLife} />
+          <Field label="Naturally good at" value={naturalSkills} />
+          <Field label="Favorite subjects" value={favSubjectsLabel} />
+          <Field label="Preference type" value={preferenceCoreType} />
+          <Field label="Learning style" value={intellectualStructuredVsOpen} />
+          <Field label="Academic vibe" value={intellectualLectureVsDiscussion} />
         </Section>
 
-        {/* Step 3 – Career & goals */}
-        <Section
-          title="Career direction & long-term goals"
-          icon={<Target className="h-4 w-4" aria-hidden />}
-          step={3}
-          onEditSection={onEditSection}
-        >
-          <Field label="Career path in mind" value={careerPath} />
-          <Field label="Career path details" value={careerPathWhat} />
-          <Field label="Confidence about this path" value={careerConfLabel} />
-          <Field label="Academic / major interests" value={interestLabel} />
-          <Field label="Target degree" value={targetDegree} />
-          <Field
-            label="Awareness of standout courses"
-            value={coursesLabel}
-          />
-          <Field
-            label="Awareness of standout activities"
-            value={tutoringAwarenessLabel}
-          />
-          <Field
-            label="Importance of placement rates"
-            value={placementLabel}
-          />
+        <Section title="Career & Direction" icon={<Target className="size-5" />} step={3} onEditSection={onEditSection} hideEdit={hideEdit}>
+          <Field label="Career path" value={careerPath} />
+          <Field label="Specific goal" value={careerPathWhat} />
+          <Field label="Confidence" value={careerConfLabel} />
+          <Field label="Interests" value={interestLabel} />
+          <Field label="Target Degree" value={targetDegree} />
+          <Field label="Study skills" value={studyLabel} />
         </Section>
 
-        {/* Step 4 – Academic profile */}
-        <Section
-          title="Academic profile & exams"
-          icon={<GraduationCap className="h-4 w-4" aria-hidden />}
-          step={4}
-          onEditSection={onEditSection}
-        >
-          <Field
-            label="GPA"
-            value={gpa != null ? `${gpa}${gpaScale ? ` / ${gpaScale}.0` : ""}` : null}
-          />
-          <Field label="Exam types taken" value={examsLabel} />
-          <Field label="SAT total (superscore)" value={satTotal} />
-          <Field label="ACT composite" value={actComposite} />
-          <Field
-            label="AP exams completed"
-            value={apExamsCount != null ? apExamsCount : null}
-          />
-          <Field
-            label="AP average score"
-            value={apAverageScore != null ? apAverageScore : null}
-          />
-          <Field
-            label="Rigorous coursework (AP / IB / Honors completed)"
-            value={
-              rigorousApCompleted || rigorousIbCompleted || rigorousHonorsCompleted
-                ? `${rigorousApCompleted ?? 0} AP · ${rigorousIbCompleted ?? 0} IB · ${
-                    rigorousHonorsCompleted ?? 0
-                  } Honors`
-                : null
-            }
-          />
+        <Section title="Academic Strength" icon={<GraduationCap className="size-5" />} step={4} onEditSection={onEditSection} hideEdit={hideEdit}>
+          <Field label="GPA (Weighted)" value={gpa} />
+          <Field label="Exams Taken" value={examsLabel} />
+          <Field label="SAT score" value={satTotal} />
+          <Field label="ACT score" value={actComposite} />
+          <Field label="AP count" value={apExamsCount != null ? String(apExamsCount) : null} />
+          <Field label="Rigor index" value={rigorousApCompleted || rigorousIbCompleted || rigorousHonorsCompleted ? "Comprehensive" : "Standard"} />
         </Section>
 
-        {/* Step 5 – Activities & achievements */}
-        <Section
-          title="Extracurricular activities & achievements"
-          icon={<Compass className="h-4 w-4" aria-hidden />}
-          step={5}
-          onEditSection={onEditSection}
-        >
-          <Field label="Activity types & intensity" value={activitiesSummary} />
-          <Field
-            label="How you rank your activities"
-            value={activityRankingLabel}
-          />
-          <Field label="Honors & awards" value={awardsSummary} />
-        </Section>
-
-        {/* Step 6 – College preferences */}
-        <Section
-          title="College preferences & current status"
-          icon={<ClipboardList className="h-4 w-4" aria-hidden />}
-          step={6}
-          onEditSection={onEditSection}
-        >
-          <Field
-            label="Confidence in admission process"
-            value={admissionConfLabel}
-          />
-          <Field
-            label="Importance of college selectivity"
-            value={selectivityLabel}
-          />
-          <Field label="Preferred states" value={locationLabel} />
-          <Field
-            label="Campus setting (urban / suburban / rural)"
-            value={campusUrbanSuburbanRural}
-          />
-          <Field
-            label="Lecture vs. seminar preference"
-            value={campusLectureVsSeminar}
-          />
-          <Field
-            label="Core vs. open curriculum"
-            value={campusCoreVsOpen}
-          />
-          <Field
-            label="Weekly quizzes vs. high-stakes exams"
-            value={campusQuizzesVsExams}
-          />
-          <Field
-            label="High-intensity vs. balanced life"
-            value={campusIntensityVsBalanced}
-          />
-          <Field
-            label="Do you already have a college list?"
-            value={hasCollegeList}
-          />
-          <Field
-            label="Your current reach/match/safety list"
-            value={collegeListReachMatchSafety}
-          />
-          <Field
-            label="Colleges you have visited"
-            value={collegeListVisited}
-          />
-          <Field
-            label="What you like about your current list"
-            value={collegeListWhatLike}
-          />
-          <Field
-            label="Application strategy (ED / EA / RD)"
-            value={applicationStrategy}
-          />
+        <Section title="Strategy & Lifestyle" icon={<Compass className="size-5" />} step={5} onEditSection={onEditSection} hideEdit={hideEdit}>
+          <Field label="Activities" value={activitiesSummary} />
+          <Field label="Awards" value={awardsSummary} />
+          <Field label="Preferred States" value={locationLabel} />
+          <Field label="Campus settings" value={Array.isArray(campusUrbanSuburbanRural) ? campusUrbanSuburbanRural.join(", ") : campusUrbanSuburbanRural} />
+          <Field label="App strategy" value={Array.isArray(applicationStrategy) ? applicationStrategy.join(", ") : applicationStrategy} />
+          <Field label="Budget/Year" value={budgetPerYear} />
+          <Field label="Financial Aid" value={fafsaEligibility === "Yes" ? "Seeking Aid" : fafsaEligibility === "No" ? "Self-funded" : "Undecided"} />
+          <Field label="Selectivity" value={selectivityLabel} />
         </Section>
       </div>
     </div>
   );
 }
-

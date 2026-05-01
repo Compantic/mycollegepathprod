@@ -1,8 +1,8 @@
 "use client";
 
-import { useState, useRef, useEffect } from "react";
+import { useState, useRef, useEffect, useLayoutEffect, useMemo } from "react";
 import Link from "next/link";
-import { motion, AnimatePresence } from "framer-motion";
+import { motion, AnimatePresence, useReducedMotion } from "framer-motion";
 import {
   Map,
   Sparkles,
@@ -27,34 +27,23 @@ import { cn } from "@/lib/utils";
 import { fetchWithAuth } from "@/lib/auth/fetchWithAuth";
 import { useToastOptional } from "@/components/ui/toast";
 import { useRoadmapHistory } from "@/hooks/useRoadmapHistory";
+import { auth } from "@/lib/firebase/client";
+import { markFirstTenStepDone } from "@/lib/activation/firstTen";
 
 export interface MyRoadPageContentProps {
   onboardingAnswers: OnboardingSnapshot | null;
   profilePhotoUrl?: string | null;
 }
 
-const containerVariants = {
-  hidden: { opacity: 0 },
-  visible: {
-    opacity: 1,
-    transition: { staggerChildren: 0.06, delayChildren: 0.1 },
-  },
-};
-
-const itemVariants = {
-  hidden: { opacity: 0, y: 12 },
-  visible: { opacity: 1, y: 0 },
-};
-
 const DATA_SECTIONS = [
   {
     key: "academic",
     title: "Academic",
     icon: GraduationCap,
-    bg: "bg-indigo-50",
-    border: "border-indigo-200",
-    iconBg: "bg-indigo-500",
-    textAccent: "text-indigo-700",
+    bg: "bg-violet-50/80",
+    border: "border-violet-200",
+    iconBg: "bg-gradient-to-br from-violet-500 to-violet-600 shadow-md shadow-violet-500/25",
+    textAccent: "text-violet-900",
     getItems: (o: OnboardingSnapshot) => [
       { label: "GPA", value: o.gpa != null ? String(o.gpa) : null },
       { label: "SAT", value: o.satTotal ?? o.satScore != null ? String(o.satTotal ?? o.satScore) : null },
@@ -68,10 +57,10 @@ const DATA_SECTIONS = [
     key: "career",
     title: "Career & Interests",
     icon: Target,
-    bg: "bg-emerald-50",
+    bg: "bg-emerald-50/80",
     border: "border-emerald-200",
-    iconBg: "bg-emerald-500",
-    textAccent: "text-emerald-700",
+    iconBg: "bg-gradient-to-br from-emerald-500 to-emerald-600 shadow-md shadow-emerald-500/20",
+    textAccent: "text-emerald-900",
     getItems: (o: OnboardingSnapshot) => [
       { label: "Career path", value: o.careerPath ?? null },
       { label: "Target degree", value: o.targetDegree ?? null },
@@ -82,16 +71,26 @@ const DATA_SECTIONS = [
     key: "activities",
     title: "Activities & Awards",
     icon: Award,
-    bg: "bg-amber-50",
+    bg: "bg-amber-50/80",
     border: "border-amber-200",
-    iconBg: "bg-amber-500",
-    textAccent: "text-amber-800",
+    iconBg: "bg-gradient-to-br from-amber-400 to-amber-600 shadow-md shadow-amber-500/20",
+    textAccent: "text-amber-900",
     getItems: (o: OnboardingSnapshot) => {
       const activities = o.activityTypes?.length ? o.activityTypes.map((a) => (typeof a === "string" ? a : a.type)).join(", ") : null;
-      const awardCount = (o.awardsSchool?.length ?? 0) + (o.awardsState?.length ?? 0) + (o.awardsNational?.length ?? 0) + (o.awardsInternational?.length ?? 0);
+      const awardCount = o.awardsConsolidated?.length ?? 0;
+      const schoolCount = o.awardsConsolidated?.filter(a => a.level === "School").length ?? 0;
+      const stateCount = o.awardsConsolidated?.filter(a => a.level === "State").length ?? 0;
+      const nationalCount = o.awardsConsolidated?.filter(a => a.level === "National").length ?? 0;
+      const internationalCount = o.awardsConsolidated?.filter(a => a.level === "International").length ?? 0;
+      
       return [
         { label: "Activities", value: activities ?? (o.activityTypes?.length ? `${o.activityTypes.length} listed` : null) },
-        { label: "Awards", value: awardCount > 0 ? `School: ${o.awardsSchool?.length ?? 0}, State: ${o.awardsState?.length ?? 0}, National+: ${(o.awardsNational?.length ?? 0) + (o.awardsInternational?.length ?? 0)}` : null },
+        { 
+          label: "Awards", 
+          value: awardCount > 0 
+            ? `Total: ${awardCount} (School: ${schoolCount}, State: ${stateCount}, National+: ${nationalCount + internationalCount})` 
+            : null 
+        },
       ];
     },
   },
@@ -99,12 +98,12 @@ const DATA_SECTIONS = [
     key: "preferences",
     title: "Preferences",
     icon: MapPin,
-    bg: "bg-sky-50",
-    border: "border-sky-200",
-    iconBg: "bg-sky-500",
-    textAccent: "text-sky-700",
+    bg: "bg-blue-50/80",
+    border: "border-blue-200",
+    iconBg: "bg-gradient-to-br from-primary-500 to-primary-600 shadow-md shadow-primary-500/25",
+    textAccent: "text-blue-900",
     getItems: (o: OnboardingSnapshot) => [
-      { label: "Campus", value: o.campusUrbanSuburbanRural ?? null },
+      { label: "Campus", value: Array.isArray(o.campusUrbanSuburbanRural) ? o.campusUrbanSuburbanRural.join(", ") : (o.campusUrbanSuburbanRural ?? null) },
       { label: "Application strategy", value: o.applicationStrategy ?? null },
       { label: "States", value: o.preferredStates?.join(", ") ?? o.locationPreferenceStates?.join(", ") ?? null },
     ],
@@ -165,9 +164,35 @@ export function MyRoadPageContent({ onboardingAnswers, profilePhotoUrl }: MyRoad
     completionMap: completedByRoadmap,
     setCompletionMap: setCompletedByRoadmap,
   } = useRoadmapHistory(Boolean(onboardingAnswers));
+  const reduceMotion = useReducedMotion();
+  const containerVariants = useMemo(
+    () => ({
+      hidden: { opacity: 0 },
+      visible: {
+        opacity: 1,
+        transition: {
+          staggerChildren: reduceMotion ? 0 : 0.06,
+          delayChildren: reduceMotion ? 0 : 0.08,
+        },
+      },
+    }),
+    [reduceMotion]
+  );
+  const itemVariants = useMemo(
+    () => ({
+      hidden: { opacity: 0, y: reduceMotion ? 0 : 12 },
+      visible: {
+        opacity: 1,
+        y: 0,
+        transition: { type: "spring" as const, stiffness: 320, damping: 28 },
+      },
+    }),
+    [reduceMotion]
+  );
   const [loading, setLoading] = useState(false);
   const [progress, setProgress] = useState(0);
   const roadmapRef = useRef<HTMLDivElement>(null);
+  const scrollToRoadmapAfterGenerateRef = useRef(false);
   const progressStepRef = useRef(0);
   const progressTimerRef = useRef<ReturnType<typeof setInterval> | null>(null);
   const { toast: showToast } = useToastOptional();
@@ -197,6 +222,15 @@ export function MyRoadPageContent({ onboardingAnswers, profilePhotoUrl }: MyRoad
     setRoadmap(history[0].roadmap);
   }, [history, roadmap]);
 
+  useLayoutEffect(() => {
+    if (!roadmap || !scrollToRoadmapAfterGenerateRef.current) return;
+    scrollToRoadmapAfterGenerateRef.current = false;
+    roadmapRef.current?.scrollIntoView({
+      behavior: reduceMotion ? "auto" : "smooth",
+      block: "start",
+    });
+  }, [roadmap, reduceMotion]);
+
   async function handleGenerate() {
     setLoading(true);
     setRoadmap(null);
@@ -206,6 +240,7 @@ export function MyRoadPageContent({ onboardingAnswers, profilePhotoUrl }: MyRoad
       const data = await res.json();
       const generated: RoadmapResult = data.roadmap ?? data;
       const newId: string = data.roadmapId ?? `roadmap-${Date.now()}`;
+      scrollToRoadmapAfterGenerateRef.current = true;
       setRoadmapId(newId);
       setRoadmap(generated);
       setHistory((prev) => [
@@ -213,6 +248,7 @@ export function MyRoadPageContent({ onboardingAnswers, profilePhotoUrl }: MyRoad
         ...prev,
       ]);
       setCompletedByRoadmap((prev) => ({ ...prev, [newId]: [] }));
+      markFirstTenStepDone(auth.currentUser?.uid, "roadmap");
       setProgress(100);
     } catch (err) {
       showToast({
@@ -330,25 +366,51 @@ export function MyRoadPageContent({ onboardingAnswers, profilePhotoUrl }: MyRoad
   if (!hasData) {
     return (
       <motion.div
-        className="rounded-2xl border-2 border-primary-500/20 bg-gradient-to-br from-primary-500/10 via-white to-primary-600/5 p-8 sm:p-10 text-center shadow-lg"
-        initial={{ opacity: 0, y: 12 }}
+        className="relative isolation-isolate overflow-hidden rounded-[2.5rem] border border-slate-800/60 p-8 text-center shadow-2xl shadow-slate-950/20 sm:p-10"
+        initial={{ opacity: 0, y: reduceMotion ? 0 : 12 }}
         animate={{ opacity: 1, y: 0 }}
-        transition={{ duration: 0.4 }}
+        transition={{ type: "spring", stiffness: 300, damping: 28 }}
       >
-        <div className="mx-auto flex h-20 w-20 items-center justify-center rounded-2xl bg-gradient-to-br from-primary-500 to-primary-600 text-white shadow-lg ring-4 ring-primary-500/20">
-          <Map className="h-10 w-10" aria-hidden />
+        {/* PREMIUM BACKGROUND EFFECTS */}
+        <div className="absolute inset-0 -z-10 bg-gradient-to-br from-[#0f1b2d] via-primary-700 to-[#162236]" aria-hidden />
+        <div
+          className="absolute inset-0 -z-10 opacity-40"
+          style={{
+            backgroundImage: `radial-gradient(circle at 20% 80%, rgba(252,211,77,0.12) 0%, transparent 45%),
+              radial-gradient(circle at 80% 20%, rgba(43,95,217,0.25) 0%, transparent 40%)`,
+          }}
+          aria-hidden
+        />
+        <div 
+          className="absolute inset-0 -z-10 opacity-[0.03]" 
+          style={{ 
+            backgroundImage: `radial-gradient(#ffffff 1px, transparent 1px)`,
+            backgroundSize: '24px 24px',
+            maskImage: 'radial-gradient(ellipse at center, black, transparent)'
+          }}
+          aria-hidden 
+        />
+
+        <div className="relative">
+          <div className="mx-auto flex h-20 w-20 items-center justify-center rounded-[2rem] bg-white/10 text-white shadow-2xl backdrop-blur-xl ring-1 ring-white/20">
+            <Map className="h-10 w-10 text-amber-400" strokeWidth={1.5} aria-hidden />
+          </div>
+          <div className="mt-8 inline-flex items-center justify-center gap-2 rounded-full border border-amber-400/30 bg-amber-400/10 px-4 py-1.5 text-[10px] font-black uppercase tracking-[0.2em] text-amber-400 backdrop-blur-md">
+            <Sparkles className="size-3.5" aria-hidden />
+            Your path starts here
+          </div>
+          <h2 className="mt-4 text-3xl font-black tracking-tight text-white sm:text-4xl">Complete your profile first</h2>
+          <p className="mt-4 mx-auto max-w-md text-base leading-relaxed text-slate-400">
+            <span className="italic text-primary-400 font-medium">We need a few details.</span> Your roadmap is built from your profile and questionnaire — finish onboarding to generate it.
+          </p>
+          <Link
+            href="/onboarding/step-1"
+            className="mt-10 inline-flex items-center gap-2 rounded-xl bg-gradient-to-r from-primary-600 to-primary-700 px-8 py-4 text-sm font-bold text-white shadow-lg shadow-primary-600/25 transition-all hover:shadow-xl"
+          >
+            Complete profile
+            <ChevronRight className="h-4 w-4" aria-hidden />
+          </Link>
         </div>
-        <h2 className="mt-6 text-xl font-bold text-text-primary">Complete your profile first</h2>
-        <p className="mt-2 max-w-md mx-auto text-sm text-text-muted">
-          Your personalized roadmap is based on your profile and questionnaire. Complete onboarding to generate your roadmap.
-        </p>
-        <Link
-          href="/onboarding/step-1"
-          className="mt-6 inline-flex items-center gap-2 rounded-xl bg-primary-500 px-5 py-2.5 text-sm font-medium text-white shadow-md transition-all hover:bg-primary-600 hover:shadow-lg"
-        >
-          Complete profile
-          <ChevronRight className="h-4 w-4" aria-hidden />
-        </Link>
       </motion.div>
     );
   }
@@ -356,214 +418,245 @@ export function MyRoadPageContent({ onboardingAnswers, profilePhotoUrl }: MyRoad
   return (
     <motion.div
       className="space-y-10"
-      initial="hidden"
-      animate="visible"
-      variants={containerVariants}
+      initial={{ opacity: 0, y: reduceMotion ? 0 : 10 }}
+      animate={{ opacity: 1, y: 0 }}
+      transition={{ type: "spring", stiffness: 300, damping: 28 }}
     >
-      {/* Breadcrumb */}
-      <motion.nav className="text-sm text-text-muted" aria-label="Breadcrumb" variants={itemVariants}>
-        <Link href="/app" className="hover:text-primary-500 transition-colors">
-          Dashboard
-        </Link>
-        <span className="mx-2">/</span>
-        <span className="font-medium text-text-primary">My Roadmap</span>
-      </motion.nav>
-
-      {/* Hero */}
-      <motion.section
-        className="relative overflow-hidden rounded-2xl bg-gradient-to-br from-primary-500/15 via-white to-primary-600/10 border border-primary-500/25 p-6 sm:p-8 shadow-lg"
-        variants={itemVariants}
-      >
-        <div className="absolute inset-0 bg-[radial-gradient(ellipse_80%_50%_at_50%_-20%,rgba(59,130,246,0.12),transparent)] pointer-events-none" />
-        <div className="relative flex flex-col gap-6 sm:flex-row sm:items-center sm:justify-between">
-          <div className="flex items-start gap-4">
-            <motion.div
-              className="flex h-14 w-14 shrink-0 items-center justify-center rounded-2xl bg-gradient-to-br from-primary-500 to-primary-600 text-white shadow-lg ring-4 ring-primary-500/20"
-              whileHover={{ scale: 1.05 }}
-              transition={{ type: "spring", stiffness: 400 }}
-            >
-              <Map className="h-7 w-7" aria-hidden />
-            </motion.div>
-            <div>
-              <h1 className="text-2xl font-bold tracking-tight text-text-primary sm:text-3xl">
-                My Roadmap
-              </h1>
-              <p className="mt-2 max-w-xl text-sm leading-relaxed text-text-muted">
-                Your profile drives a tailored college application plan. Review your data below, then generate your personalized timeline and action items.
-              </p>
-            </div>
-          </div>
-          <Link
-            href="/app/profile"
-            className="inline-flex shrink-0 items-center gap-2 rounded-xl border-2 border-bg-border bg-white px-4 py-2.5 text-sm font-medium text-text-primary transition-all hover:border-primary-500 hover:bg-primary-50/50 hover:shadow-md"
-          >
-            <Settings className="h-4 w-4" />
-            Update profile
+      <motion.div className="space-y-10" initial="hidden" animate="visible" variants={containerVariants}>
+        {/* Breadcrumb */}
+        <motion.nav className="text-sm text-slate-500" aria-label="Breadcrumb" variants={itemVariants}>
+          <Link href="/app" className="font-medium transition-colors hover:text-primary-600">
+            Dashboard
           </Link>
-        </div>
-      </motion.section>
+          <span className="mx-2 text-slate-400">/</span>
+          <span className="font-semibold text-slate-900">My Roadmap</span>
+        </motion.nav>
 
-      {/* Data cards */}
-      <motion.section className="space-y-6" variants={itemVariants}>
-        <h2 className="text-lg font-bold text-text-primary">Your profile at a glance</h2>
-        <div className="grid gap-6 sm:grid-cols-2">
-          {DATA_SECTIONS.map((section, i) => {
-            const items = section.getItems(o!);
-            const filled = items.filter((x) => x.value != null && x.value !== "").length;
-            if (filled === 0) return null;
-            const Icon = section.icon;
-            return (
+        {/* Hero */}
+        <motion.section variants={itemVariants} className="relative">
+          <div className="relative isolation-isolate overflow-hidden rounded-[2.5rem] border border-slate-800/60 p-8 shadow-2xl shadow-slate-950/20">
+            {/* PREMIUM BACKGROUND EFFECTS */}
+            <div className="absolute inset-0 -z-10 bg-gradient-to-br from-[#0f1b2d] via-primary-700 to-[#162236]" aria-hidden />
+            <div
+              className="absolute inset-0 -z-10 opacity-40"
+              style={{
+                backgroundImage: `radial-gradient(circle at 20% 80%, rgba(252,211,77,0.12) 0%, transparent 45%),
+                  radial-gradient(circle at 80% 20%, rgba(43,95,217,0.25) 0%, transparent 40%)`,
+              }}
+              aria-hidden
+            />
+            <div 
+              className="absolute inset-0 -z-10 opacity-[0.03]" 
+              style={{ 
+                backgroundImage: `radial-gradient(#ffffff 1px, transparent 1px)`,
+                backgroundSize: '24px 24px',
+                maskImage: 'radial-gradient(ellipse at center, black, transparent)'
+              }}
+              aria-hidden 
+            />
+
+            <div className="relative flex flex-col gap-4 sm:flex-row sm:items-center sm:gap-8">
               <motion.div
-                key={section.key}
-                className={cn("rounded-2xl border-2 p-5 transition-shadow hover:shadow-lg", section.border, section.bg)}
-                variants={itemVariants}
-                whileHover={{ y: -4, transition: { duration: 0.2 } }}
+                initial={reduceMotion ? false : { scale: 0.9, opacity: 0 }}
+                animate={{ scale: 1, opacity: 1 }}
+                transition={{ delay: reduceMotion ? 0 : 0.08, type: "spring", stiffness: 280, damping: 22 }}
+                className="flex h-20 w-20 shrink-0 items-center justify-center rounded-[2rem] bg-white/10 text-white shadow-2xl backdrop-blur-xl ring-1 ring-white/20"
               >
-                <div className="flex items-center gap-3 mb-4">
-                  <motion.div
-                    className={cn("flex h-11 w-11 items-center justify-center rounded-xl text-white shadow-sm", section.iconBg)}
-                    whileHover={{ scale: 1.08 }}
-                  >
-                    <Icon className="h-5 w-5" />
-                  </motion.div>
-                  <h3 className={cn("font-semibold", section.textAccent)}>{section.title}</h3>
-                </div>
-                <div className="grid grid-cols-2 gap-3">
-                  {items.map(
-                    (item, j) =>
-                      item.value != null &&
-                      item.value !== "" && (
-                        <motion.div
-                          key={j}
-                          initial={{ opacity: 0, x: -8 }}
-                          animate={{ opacity: 1, x: 0 }}
-                          transition={{ delay: 0.05 * j }}
-                          className="rounded-xl border border-white/80 bg-white/60 px-3 py-2.5 backdrop-blur-sm"
-                        >
-                          <p className="text-[10px] font-bold uppercase tracking-wider text-text-muted">{item.label}</p>
-                          <p className="text-sm font-medium text-text-primary break-words">{item.value}</p>
-                        </motion.div>
-                      )
-                  )}
-                </div>
+                <Map className="h-10 w-10 text-amber-400" strokeWidth={1.5} aria-hidden />
               </motion.div>
-            );
-          })}
-        </div>
-      </motion.section>
-
-      {/* Generate CTA */}
-      <motion.section
-        className="overflow-hidden rounded-2xl border-2 border-primary-500/20 bg-gradient-to-br from-primary-500/10 via-white to-amber-500/5 p-6 shadow-lg"
-        variants={itemVariants}
-      >
-        <div className="flex flex-col gap-6 sm:flex-row sm:items-center sm:justify-between">
-          <div className="flex items-center gap-4">
-            <div className="flex h-14 w-14 shrink-0 items-center justify-center rounded-2xl bg-gradient-to-br from-primary-500 to-primary-600 text-white shadow-lg ring-4 ring-primary-500/20">
-              <Sparkles className="h-7 w-7" aria-hidden />
-            </div>
-            <div>
-              <h2 className="text-xl font-bold text-text-primary">Generate your roadmap</h2>
-              <p className="mt-1 text-sm text-text-muted">
-                Get a phased timeline, action items, and areas to strengthen based on your profile.
-              </p>
-            </div>
-          </div>
-          <button
-            type="button"
-            onClick={handleGenerate}
-            disabled={loading}
-            className={cn(
-              "shrink-0 inline-flex items-center justify-center gap-3 rounded-xl px-8 py-4 text-base font-semibold shadow-lg transition-all",
-              "bg-gradient-to-r from-primary-500 to-primary-600 text-white",
-              "hover:from-primary-600 hover:to-primary-700 hover:shadow-xl disabled:opacity-70 disabled:cursor-not-allowed"
-            )}
-          >
-            {loading ? (
-              <>
-                <Loader2 className="h-5 w-5 animate-spin" />
-                Generating…
-              </>
-            ) : (
-              <>
-                <Sparkles className="h-5 w-5" />
-                Generate my roadmap
-              </>
-            )}
-          </button>
-        </div>
-        {history.length > 0 && (
-          <div className="mt-4 flex flex-wrap items-center justify-between gap-3 text-xs text-text-muted">
-            <div>
-              <span className="font-semibold text-text-secondary">Saved roadmaps:</span>{" "}
-              <select
-                value={roadmapId ?? (history[0]?.roadmapId ?? "")}
-                onChange={(e) => {
-                  const id = e.target.value;
-                  const selected = history.find((r) => r.roadmapId === id);
-                  if (selected) {
-                    setRoadmapId(selected.roadmapId);
-                    setRoadmap(selected.roadmap);
-                  }
-                }}
-                className="ml-1 rounded-md border border-slate-300 bg-white px-2 py-1 text-xs text-text-primary shadow-sm focus:outline-none focus:ring-1 focus:ring-primary-500/60"
+              <div className="flex-1">
+                <div className="inline-flex items-center gap-2 rounded-full border border-amber-400/30 bg-amber-400/10 px-4 py-1.5 text-[10px] font-black uppercase tracking-[0.2em] text-amber-400 backdrop-blur-md">
+                  <Sparkles className="size-3.5" aria-hidden />
+                  Plan & timeline
+                </div>
+                <h1 className="mt-4 text-4xl font-black tracking-tight text-white sm:text-5xl">My Roadmap</h1>
+                <p className="mt-4 max-w-2xl text-base leading-relaxed text-slate-400">
+                  <span className="italic text-primary-400 font-medium">Your profile, your pace.</span> Review your data below, then generate a phased plan with clear action items.
+                </p>
+              </div>
+              <Link
+                href="/app/profile"
+                className="inline-flex shrink-0 items-center gap-2 rounded-xl border border-white/20 bg-white/10 px-4 py-3 text-sm font-bold text-white shadow-lg backdrop-blur-md transition-all hover:bg-white/20 hover:shadow-xl focus:outline-none focus:ring-2 focus:ring-white/30"
               >
-                {history.map((r) => (
-                  <option key={r.roadmapId} value={r.roadmapId}>
-                    {new Date(r.createdAt).toLocaleString(undefined, {
-                      month: "short",
-                      day: "2-digit",
-                      hour: "2-digit",
-                      minute: "2-digit",
-                    })}
-                  </option>
-                ))}
-              </select>
+                <Settings className="h-4 w-4" aria-hidden />
+                Update profile
+              </Link>
             </div>
-            {historyLoading && <span>Loading saved roadmaps…</span>}
-            {!historyLoading && historyError && (
-              <span className="text-amber-700">{historyError}</span>
-            )}
           </div>
-        )}
+        </motion.section>
 
-        {loading && (
-          <div className="mt-6 space-y-2">
-            <div className="flex items-center justify-between gap-2">
-              <span className="text-sm font-medium text-text-muted">Building your roadmap…</span>
-              <span className="text-sm font-bold tabular-nums text-primary-600">{progress}%</span>
+        {/* Data cards */}
+        <motion.section className="space-y-6" variants={itemVariants}>
+          <h2 className="text-xs font-bold uppercase tracking-[0.2em] text-primary-600">Your profile at a glance</h2>
+          <motion.div
+            className="grid gap-5 sm:grid-cols-2"
+            variants={containerVariants}
+            initial="hidden"
+            animate="visible"
+          >
+            {DATA_SECTIONS.map((section) => {
+              const items = section.getItems(o!);
+              const filled = items.filter((x) => x.value != null && x.value !== "").length;
+              if (filled === 0) return null;
+              const Icon = section.icon;
+              return (
+                <motion.div
+                  key={section.key}
+                  className={cn(
+                    "rounded-2xl border p-5 shadow-md backdrop-blur-sm transition-shadow hover:shadow-lg",
+                    section.border,
+                    section.bg
+                  )}
+                  variants={itemVariants}
+                  whileHover={reduceMotion ? undefined : { y: -3, transition: { duration: 0.2 } }}
+                >
+                  <div className="mb-4 flex items-center gap-3">
+                    <motion.div
+                      className={cn("flex h-11 w-11 items-center justify-center rounded-xl text-white", section.iconBg)}
+                      whileHover={reduceMotion ? undefined : { scale: 1.06 }}
+                    >
+                      <Icon className="h-5 w-5" aria-hidden />
+                    </motion.div>
+                    <h3 className={cn("text-lg font-bold", section.textAccent)}>{section.title}</h3>
+                  </div>
+                  <div className="grid grid-cols-2 gap-3">
+                    {items.map(
+                      (item, j) =>
+                        item.value != null &&
+                        item.value !== "" && (
+                          <motion.div
+                            key={j}
+                            initial={{ opacity: 0, x: reduceMotion ? 0 : -6 }}
+                            animate={{ opacity: 1, x: 0 }}
+                            transition={{ delay: reduceMotion ? 0 : 0.04 * j, type: "spring", stiffness: 380, damping: 28 }}
+                            className="rounded-xl border border-white/90 bg-white/85 px-3 py-2.5 shadow-sm ring-1 ring-slate-100/80 backdrop-blur-sm"
+                          >
+                            <p className="text-[10px] font-bold uppercase tracking-wider text-slate-500">{item.label}</p>
+                            <p className="break-words text-sm font-semibold text-slate-900">{item.value}</p>
+                          </motion.div>
+                        )
+                    )}
+                  </div>
+                </motion.div>
+              );
+            })}
+          </motion.div>
+        </motion.section>
+
+        {/* Generate CTA */}
+        <motion.section className="relative overflow-hidden rounded-3xl border border-slate-200/90 bg-gradient-to-br from-white via-primary-50/40 to-amber-50/30 p-6 shadow-onboarding-card sm:p-8" variants={itemVariants}>
+          <div
+            className="absolute inset-x-0 top-0 h-1 bg-gradient-to-r from-[#0f1b2d] via-primary-600 to-amber-400"
+            aria-hidden
+          />
+          <div className="pointer-events-none absolute -right-24 top-1/2 h-44 w-44 -translate-y-1/2 rounded-full bg-primary-400/10 blur-3xl" aria-hidden />
+          <div className="relative flex flex-col gap-6 sm:flex-row sm:items-center sm:justify-between">
+            <div className="flex items-center gap-4">
+              <div className="flex h-14 w-14 shrink-0 items-center justify-center rounded-2xl bg-gradient-to-br from-primary-600 to-primary-700 text-white shadow-lg shadow-primary-600/30">
+                <Sparkles className="h-7 w-7" aria-hidden />
+              </div>
+              <div>
+                <p className="text-[11px] font-bold uppercase tracking-[0.18em] text-primary-700">Next step</p>
+                <h2 className="text-xl font-semibold text-slate-900">Generate your roadmap</h2>
+                <p className="mt-1 text-sm text-slate-600">
+                  Phased timeline, action items, and areas to strengthen — from your profile.
+                </p>
+              </div>
             </div>
-            <div className="overflow-hidden rounded-xl bg-white/80">
-              <motion.div
-                className="h-2 rounded-xl bg-gradient-to-r from-primary-500 to-primary-600"
-                initial={{ width: 0 }}
-                animate={{ width: `${progress}%` }}
-                transition={{ duration: 0.4 }}
-              />
-            </div>
+            <button
+              type="button"
+              onClick={handleGenerate}
+              disabled={loading}
+              className={cn(
+                "inline-flex shrink-0 items-center justify-center gap-3 rounded-xl px-8 py-4 text-base font-bold text-white shadow-lg transition-all",
+                "bg-gradient-to-r from-primary-600 to-primary-700 shadow-primary-600/25",
+                "hover:shadow-xl disabled:cursor-not-allowed disabled:opacity-70"
+              )}
+            >
+              {loading ? (
+                <>
+                  <Loader2 className="h-5 w-5 animate-spin" aria-hidden />
+                  Generating…
+                </>
+              ) : (
+                <>
+                  <Sparkles className="h-5 w-5" aria-hidden />
+                  Generate my roadmap
+                </>
+              )}
+            </button>
           </div>
-        )}
-      </motion.section>
+          {history.length > 0 && (
+            <div className="relative mt-5 flex flex-wrap items-center justify-between gap-3 border-t border-slate-200/80 pt-4 text-xs text-slate-600">
+              <div>
+                <span className="font-bold text-slate-800">Saved roadmaps:</span>{" "}
+                <select
+                  value={roadmapId ?? (history[0]?.roadmapId ?? "")}
+                  onChange={(e) => {
+                    const id = e.target.value;
+                    const selected = history.find((r) => r.roadmapId === id);
+                    if (selected) {
+                      setRoadmapId(selected.roadmapId);
+                      setRoadmap(selected.roadmap);
+                    }
+                  }}
+                  className="ml-1 rounded-xl border border-slate-200/90 bg-white px-3 py-2 text-xs font-medium text-slate-900 shadow-sm focus:border-primary-400 focus:outline-none focus:ring-2 focus:ring-primary-500/15"
+                >
+                  {history.map((r) => (
+                    <option key={r.roadmapId} value={r.roadmapId}>
+                      {new Date(r.createdAt).toLocaleString(undefined, {
+                        month: "short",
+                        day: "2-digit",
+                        hour: "2-digit",
+                        minute: "2-digit",
+                      })}
+                    </option>
+                  ))}
+                </select>
+              </div>
+              {historyLoading && <span>Loading saved roadmaps…</span>}
+              {!historyLoading && historyError && <span className="font-medium text-amber-800">{historyError}</span>}
+            </div>
+          )}
+
+          {loading && (
+            <div className="relative mt-6 space-y-2">
+              <div className="flex items-center justify-between gap-2">
+                <span className="text-sm font-semibold text-slate-600">Building your roadmap…</span>
+                <span className="text-sm font-bold tabular-nums text-primary-600">{progress}%</span>
+              </div>
+              <div className="overflow-hidden rounded-xl bg-slate-100/90">
+                <motion.div
+                  className="h-2 rounded-xl bg-gradient-to-r from-primary-600 to-primary-500"
+                  initial={{ width: 0 }}
+                  animate={{ width: `${progress}%` }}
+                  transition={{ duration: reduceMotion ? 0 : 0.4 }}
+                />
+              </div>
+            </div>
+          )}
+        </motion.section>
+      </motion.div>
 
       {/* Roadmap result — timeline theme with charts and animations */}
       <AnimatePresence>
         {roadmap && (
           <motion.section
             ref={roadmapRef}
-            initial={{ opacity: 0, y: 24 }}
+            initial={{ opacity: 0, y: reduceMotion ? 0 : 24 }}
             animate={{ opacity: 1, y: 0 }}
             exit={{ opacity: 0 }}
-            transition={{ duration: 0.5 }}
-            className="space-y-10 rounded-3xl border-2 border-slate-200/80 bg-gradient-to-b from-slate-50/90 to-white p-6 sm:p-8 shadow-xl"
+            transition={{ duration: reduceMotion ? 0.2 : 0.5 }}
+            className="scroll-mt-24 space-y-10 rounded-3xl border border-slate-200/90 bg-white/95 p-6 shadow-onboarding-card backdrop-blur-sm sm:p-8"
           >
             {/* Header + Export */}
             <div className="flex flex-wrap items-center justify-between gap-4">
-              <h2 className="text-2xl font-bold tracking-tight text-text-primary">Your personalized roadmap</h2>
+              <h2 className="text-2xl font-semibold tracking-tight text-slate-900">Your personalized roadmap</h2>
               <div className="flex flex-wrap gap-2">
                 <button
                   type="button"
                   onClick={handleExportPDF}
-                  className="inline-flex items-center gap-2 rounded-xl border-2 border-primary-500/40 bg-white px-4 py-2.5 text-sm font-semibold text-primary-600 hover:bg-primary-50 transition-colors"
+                  className="inline-flex items-center gap-2 rounded-xl border border-primary-500/50 bg-white px-4 py-2.5 text-sm font-bold text-primary-700 shadow-sm transition-colors hover:bg-primary-50"
                 >
                   <Download className="h-4 w-4" />
                   Export PDF
@@ -584,7 +677,7 @@ export function MyRoadPageContent({ onboardingAnswers, profilePhotoUrl }: MyRoad
                     URL.revokeObjectURL(url);
                     showToast?.({ title: "Calendar export created", description: "Import the .ics file into your calendar app." });
                   }}
-                  className="inline-flex items-center gap-2 rounded-xl border-2 border-bg-border bg-white px-4 py-2.5 text-sm font-semibold text-text-primary hover:bg-slate-50 transition-colors"
+                  className="inline-flex items-center gap-2 rounded-xl border border-slate-200/90 bg-white px-4 py-2.5 text-sm font-bold text-slate-800 shadow-sm transition-colors hover:bg-slate-50"
                 >
                   <CalendarDays className="h-4 w-4" />
                   Export .ics
@@ -654,42 +747,62 @@ export function MyRoadPageContent({ onboardingAnswers, profilePhotoUrl }: MyRoad
               </div>
             )}
 
-            {/* Overview bar chart — tasks per phase */}
+            {/* Overview bar chart — tasks per phase (pixel heights so bars always render) */}
             {roadmap.phases.length > 0 && (
               <motion.div
                 initial={{ opacity: 0, y: 8 }}
                 animate={{ opacity: 1, y: 0 }}
                 transition={{ delay: 0.2 }}
-                className="rounded-2xl border-2 border-slate-200 bg-white p-4 shadow-sm"
+                className="rounded-2xl border-2 border-slate-200 bg-white p-5 shadow-sm"
               >
-                <h3 className="mb-3 flex items-center gap-2 text-sm font-bold text-text-primary">
-                  <BarChart2 className="h-4 w-4 text-primary-500" />
-                  Roadmap overview
-                </h3>
-                <div className="flex items-end gap-2 h-20">
+                <div className="mb-4">
+                  <h3 className="flex items-center gap-2 text-sm font-bold text-text-primary">
+                    <BarChart2 className="h-4 w-4 shrink-0 text-primary-500" />
+                    Roadmap overview
+                  </h3>
+                  <p className="mt-2 text-sm leading-relaxed text-slate-600">
+                    Quick snapshot of how many <span className="font-semibold text-slate-800">action items</span> are planned
+                    in each phase (P1–P{roadmap.phases.length}). A taller bar means more tasks in that part of your timeline —
+                    not “importance,” just workload spread.
+                  </p>
+                </div>
+                <div className="flex items-end justify-between gap-2 sm:gap-4">
                   {roadmap.phases
                     .slice()
                     .sort((a, b) => a.order - b.order)
                     .map((phase, i) => {
                       const count = phase.items.length;
                       const maxCount = Math.max(...roadmap.phases.map((p) => p.items.length), 1);
-                      const heightPct = Math.max(25, (count / maxCount) * 100);
+                      const CHART_PX = 112;
+                      const barHeightPx = Math.max(14, Math.round((count / maxCount) * CHART_PX));
                       return (
-                        <div key={phase.id} className="flex flex-1 flex-col items-center gap-1 min-w-0">
-                          <div className="w-full flex-1 flex flex-col justify-end min-h-[3rem]">
+                        <div key={phase.id} className="flex min-w-0 flex-1 flex-col items-center gap-2">
+                          <span className="text-xs font-bold tabular-nums text-primary-700">{count}</span>
+                          <div
+                            className="flex h-[120px] w-full max-w-[5rem] flex-col justify-end rounded-t-lg bg-slate-100/90 sm:max-w-none"
+                            aria-hidden
+                          >
                             <motion.div
-                              className="w-full rounded-t-md bg-gradient-to-t from-primary-600 to-primary-500"
+                              className="mx-auto w-[72%] rounded-t-lg bg-gradient-to-t from-primary-600 to-primary-400 shadow-sm sm:w-[70%]"
                               initial={{ height: 0 }}
-                              animate={{ height: `${heightPct}%` }}
-                              transition={{ delay: 0.25 + 0.08 * i, duration: 0.5 }}
+                              animate={{ height: barHeightPx }}
+                              transition={{ delay: 0.2 + 0.07 * i, duration: 0.5, ease: [0.22, 1, 0.36, 1] }}
                             />
                           </div>
-                          <span className="text-[10px] font-bold text-text-muted">P{phase.order}</span>
+                          <div className="w-full text-center">
+                            <span className="text-[11px] font-bold text-slate-700">P{phase.order}</span>
+                            <p className="line-clamp-2 text-[10px] leading-snug text-slate-500" title={phase.title}>
+                              {phase.title}
+                            </p>
+                          </div>
                         </div>
                       );
                     })}
                 </div>
-                <p className="mt-2 text-xs text-text-muted">Tasks per phase (P1–P{roadmap.phases.length})</p>
+                <p className="mt-4 border-t border-slate-100 pt-3 text-xs text-slate-500">
+                  Tip: scroll down to <span className="font-medium text-slate-700">Your timeline</span> for full task lists and
+                  checkboxes per phase.
+                </p>
               </motion.div>
             )}
 

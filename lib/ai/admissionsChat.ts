@@ -22,10 +22,9 @@ export async function runAdmissionsCoachWithContext(
   ];
 
   const response = await openai.chat.completions.create({
-    model: options?.model ?? "gpt-4o-mini",
+    model: options?.model ?? process.env.OPENAI_CHAT_MODEL ?? "gpt-5.5",
     messages: allMessages,
-    temperature: 0.6,
-    max_tokens: 900,
+    max_completion_tokens: 900,
   });
 
   const choice = response.choices?.[0];

@@ -1,0 +1,103 @@
+# Build the Docker image on native linux/amd64 (GitHub-hosted runner), verify the HTML
+# document shell (must start with <!DOCTYPE), then push to Azure Container Registry.
+#
+# Mac/Docker Desktop builds have produced responses starting with <meta ...> (missing
+# <!DOCTYPE>/<html>), which breaks hydration. CI builds avoid that toolchain path.
+#
+# Required repository Secrets (Settings → Secrets and variables → Actions):
+#   ACR_USERNAME          — Azure Container Registry name (e.g. acrmycollegepathstaging)
+#   ACR_PASSWORD          — ACR admin password or token with push rights
+#   NEXT_PUBLIC_FIREBASE_API_KEY
+#   NEXT_PUBLIC_FIREBASE_AUTH_DOMAIN
+#   NEXT_PUBLIC_FIREBASE_PROJECT_ID
+#   NEXT_PUBLIC_FIREBASE_STORAGE_BUCKET
+#   NEXT_PUBLIC_FIREBASE_MESSAGING_SENDER_ID
+#   NEXT_PUBLIC_FIREBASE_APP_ID
+#
+# Staging URL for NEXT_PUBLIC_APP_URL is set in the workflow env block below.
+
+name: Docker build (ACR staging)
+
+on:
+  workflow_dispatch:
+    inputs:
+      tag:
+        description: "Image tag to push (e.g. staging-v5)"
+        required: true
+        default: staging-ci
+
+jobs:
+  build-verify-push:
+    runs-on: ubuntu-latest
+    env:
+      ACR_REGISTRY: acrmycollegepathstaging.azurecr.io
+      IMAGE_NAME: mycollegepath
+      VERIFY_TAG: local/mycollegepath:verify
+      # Override in the workflow if staging URL changes.
+      NEXT_PUBLIC_APP_URL: https://staging.mycollegepath.ai
+    steps:
+      - name: Checkout
+        uses: actions/checkout@v4
+
+      - name: Set up Docker Buildx
+        uses: docker/setup-buildx-action@v3
+
+      - name: Log in to Azure Container Registry
+        uses: docker/login-action@v3
+        with:
+          registry: ${{ env.ACR_REGISTRY }}
+          username: ${{ secrets.ACR_USERNAME }}
+          password: ${{ secrets.ACR_PASSWORD }}
+
+      - name: Build image (linux/amd64, load for smoke test)
+        uses: docker/build-push-action@v6
+        with:
+          context: .
+          load: true
+          platforms: linux/amd64
+          tags: ${{ env.VERIFY_TAG }}
+          build-args: |
+            NEXT_PUBLIC_FIREBASE_API_KEY=${{ secrets.NEXT_PUBLIC_FIREBASE_API_KEY }}
+            NEXT_PUBLIC_FIREBASE_AUTH_DOMAIN=${{ secrets.NEXT_PUBLIC_FIREBASE_AUTH_DOMAIN }}
+            NEXT_PUBLIC_FIREBASE_PROJECT_ID=${{ secrets.NEXT_PUBLIC_FIREBASE_PROJECT_ID }}
+            NEXT_PUBLIC_FIREBASE_STORAGE_BUCKET=${{ secrets.NEXT_PUBLIC_FIREBASE_STORAGE_BUCKET }}
+            NEXT_PUBLIC_FIREBASE_MESSAGING_SENDER_ID=${{ secrets.NEXT_PUBLIC_FIREBASE_MESSAGING_SENDER_ID }}
+            NEXT_PUBLIC_FIREBASE_APP_ID=${{ secrets.NEXT_PUBLIC_FIREBASE_APP_ID }}
+            NEXT_PUBLIC_APP_URL=${{ env.NEXT_PUBLIC_APP_URL }}
+
+      - name: Smoke test — HTML shell + Tailwind CSS links
+        run: |
+          set -euo pipefail
+          docker run -d --name mcp-smoke -p 3999:3000 ${{ env.VERIFY_TAG }}
+          ok=""
+          for i in $(seq 1 15); do
+            if curl -sf "http://127.0.0.1:3999/" -o /tmp/home.html 2>/dev/null; then ok=1; break; fi
+            sleep 1
+          done
+          if [ -z "$ok" ]; then docker logs mcp-smoke 2>&1 || true; docker rm -f mcp-smoke; exit 1; fi
+          curl -sf "http://127.0.0.1:3999/login" -o /tmp/login.html
+          python3 - <<'PY'
+          import pathlib
+
+          def check(path: str, label: str) -> None:
+              data = pathlib.Path(path).read_bytes()
+              print(f"=== {label} ({len(data)} bytes) prefix:", data[:72])
+              if not data.startswith(b"<!DOCTYPE html"):
+                  raise SystemExit(f"{label}: Missing <!DOCTYPE html> — broken Next streaming shell.")
+              if b'rel="stylesheet"' not in data and b"rel='stylesheet'" not in data:
+                  raise SystemExit(f"{label}: No <link rel=stylesheet> — page will look unstyled (no Tailwind CSS).")
+              if b"/_next/static/css/" not in data:
+                  raise SystemExit(f"{label}: No /_next/static/css/ href — compiled CSS not linked.")
+
+          check("/tmp/home.html", "GET /")
+          check("/tmp/login.html", "GET /login")
+          PY
+          docker rm -f mcp-smoke
+          echo "OK: / and /login have valid document shell and CSS links."
+
+      - name: Tag and push to ACR
+        run: |
+          REMOTE_TAG="${{ env.ACR_REGISTRY }}/${{ env.IMAGE_NAME }}:${{ github.event.inputs.tag }}"
+          docker tag ${{ env.VERIFY_TAG }} "$REMOTE_TAG"
+          docker push "$REMOTE_TAG"
+          echo "Pushed $REMOTE_TAG"

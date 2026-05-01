@@ -10,7 +10,9 @@ export default async function AppLayout({
 }) {
   const user = await getSessionUserFromCookies();
   if (!user) {
-    redirect("/login?from=/app/dashboard");
+    // Middleware handles unauthenticated redirects for /app/* routes.
+    // Avoid forcing a global redirect here to prevent public-route loops.
+    return <>{children}</>;
   }
   const completed = await isOnboardingCompleted(user.uid);
   if (!completed) {

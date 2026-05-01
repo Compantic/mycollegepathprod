@@ -83,12 +83,17 @@ export async function POST(req: NextRequest) {
       profile?.firstName ||
       "Student";
 
+    // Force numeric conversion and pick highest/latest
+    const currentGpa = Number(profile?.onboardingAnswers?.gpa ?? profile?.profile?.gpa ?? 0) || 0;
+    const currentSat = Number(profile?.onboardingAnswers?.satTotal ?? profile?.onboardingAnswers?.satScore ?? profile?.profile?.satScore ?? 0) || 0;
+    const currentAct = Number(profile?.onboardingAnswers?.actComposite ?? profile?.onboardingAnswers?.actScore ?? profile?.profile?.actScore ?? 0) || 0;
+
     const compactProfile = {
-      gpa: profile?.profile?.gpa ?? null,
-      sat: profile?.profile?.satScore ?? null,
-      act: profile?.profile?.actScore ?? null,
-      preferredStates: profile?.profile?.preferredStates ?? [],
-      preferredSize: profile?.profile?.preferredSize ?? null,
+      gpa: currentGpa,
+      sat: currentSat,
+      act: currentAct,
+      preferredStates: (profile?.profile?.preferredStates?.length ? profile.profile.preferredStates : profile?.onboardingAnswers?.locationPreferenceStates) ?? [],
+      preferredSize: profile?.profile?.preferredSize ?? profile?.onboardingAnswers?.preferredSize ?? null,
       savedCollegesCount: profile?.savedColleges?.length ?? 0,
       onboardingFieldCount: profile?.onboardingAnswers ? Object.keys(profile.onboardingAnswers).length : 0,
       targetDegree: profile?.onboardingAnswers?.targetDegree ?? null,
@@ -106,18 +111,21 @@ export async function POST(req: NextRequest) {
       result = fallbackScore(profile);
     } else {
       const prompt = [
-        "You are an admissions evaluator.",
-        "Given a student's profile, compute an overall readiness score from 0 to 100.",
-        "Use these priorities: academics 40%, testing 20%, activities/awards 20%, clarity/fit/preferences 20%.",
-        "Be realistic, not overly generous.",
-        "Return strict JSON only with keys: score (number), summary (string, max 220 chars), strengths (string[] max 4), improvements (string[] max 4).",
-        `Student name: ${fullName}`,
-        `Profile JSON: ${JSON.stringify(compactProfile)}`,
+        "You are an expert college admissions evaluator.",
+        `IMPORTANT: The student's current academic metrics are: GPA: ${currentGpa}, SAT: ${currentSat}, ACT: ${currentAct}.`,
+        "You MUST base your score and summary primarily on THESE values above, as they are the most recent.",
+        "Compute an overall readiness score from 0 to 100.",
+        "Weighting: academics 40%, testing 20%, activities/awards 20%, clarity/fit/preferences 20%.",
+        "Be realistic. A student with 3.9 GPA and 1500 SAT is very strong academically.",
+        "Return strict JSON only: { \"score\": number, \"summary\": string, \"strengths\": string[], \"improvements\": string[] }.",
+        "Keep summary under 220 chars. Max 4 strengths and 4 improvements.",
+        `Student: ${fullName}`,
+        `Full Detail: ${JSON.stringify(compactProfile)}`,
       ].join("\n");
 
       const message = await chatCompletion([{ role: "user", content: prompt }], {
-        model: "gpt-4o-mini",
-        temperature: 0.2,
+        model: process.env.OPENAI_SCORE_MODEL ?? "gpt-5.5",
+        temperature: 0.1, // Reduced temperature for more consistency
       });
       const parsed = extractJson(message?.content ?? "");
       if (!parsed) {
@@ -132,7 +140,7 @@ export async function POST(req: NextRequest) {
       summary: result.summary,
       strengths: result.strengths,
       improvements: result.improvements,
-      model: process.env.OPENAI_API_KEY ? "gpt-4o-mini" : "fallback-heuristic",
+      model: process.env.OPENAI_API_KEY ? (process.env.OPENAI_SCORE_MODEL ?? "gpt-5.5") : "fallback-heuristic",
     });
 
     return NextResponse.json({ score: saved });

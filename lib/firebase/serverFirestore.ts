@@ -56,9 +56,29 @@ export async function saveMatchingRun(
   matches: CollegeMatch[]
 ): Promise<void> {
   const ref = adminDb.collection(USERS).doc(userId).collection(MATCHES_SUBCOLLECTION).doc(runId);
+  const scoreTelemetry = matches.length
+    ? {
+        count: matches.length,
+        raw: {
+          min: Math.min(...matches.map((m) => m.rawScore ?? m.matchScore)),
+          max: Math.max(...matches.map((m) => m.rawScore ?? m.matchScore)),
+          avg:
+            matches.reduce((acc, m) => acc + (m.rawScore ?? m.matchScore), 0) /
+            Math.max(matches.length, 1),
+        },
+        calibrated: {
+          min: Math.min(...matches.map((m) => m.calibratedScore ?? m.matchScore)),
+          max: Math.max(...matches.map((m) => m.calibratedScore ?? m.matchScore)),
+          avg:
+            matches.reduce((acc, m) => acc + (m.calibratedScore ?? m.matchScore), 0) /
+            Math.max(matches.length, 1),
+        },
+      }
+    : null;
   const payload = stripUndefined({
     runId,
     matches,
+    scoreTelemetry,
     createdAt: new Date().toISOString(),
   });
   await ref.set(payload);
@@ -67,6 +87,11 @@ export async function saveMatchingRun(
 export interface MatchRunDoc {
   runId: string;
   matches: CollegeMatch[];
+  scoreTelemetry?: {
+    count: number;
+    raw: { min: number; max: number; avg: number };
+    calibrated: { min: number; max: number; avg: number };
+  } | null;
   createdAt: string;
 }
 

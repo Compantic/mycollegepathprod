@@ -32,7 +32,7 @@ export async function getSessionUserFromRequest(request: Request): Promise<{
   if (bearer) return getSessionUser(bearer);
   const { cookies } = await import("next/headers");
   const cookieStore = await cookies();
-  const cookieToken = cookieStore.get("firebase-id-token")?.value ?? null;
+  const cookieToken = cookieStore.get("__session")?.value ?? null;
   return getSessionUser(cookieToken);
 }
 
@@ -45,6 +45,6 @@ export async function getSessionUserFromCookies(): Promise<{
 } | null> {
   const { cookies } = await import("next/headers");
   const cookieStore = await cookies();
-  const token = cookieStore.get("firebase-id-token")?.value ?? null;
+  const token = cookieStore.get("__session")?.value ?? null;
   return getSessionUser(token);
 }

@@ -1,104 +1,161 @@
+"use client";
+
 import Link from "next/link";
+import { motion, useReducedMotion } from "framer-motion";
 import { OnboardingProgress } from "@/components/onboarding/OnboardingProgress";
-import { LogoIcon } from "@/components/landing/LogoIcon";
-import { Settings, ShieldCheck, Lock } from "lucide-react";
+import { LogoWordmark } from "@/components/landing/LogoWordmark";
+import {
+  ShieldCheck,
+  Lock,
+  Sparkles,
+  Route,
+  Target,
+} from "lucide-react";
 
 export default function OnboardingLayout({
   children,
 }: {
   children: React.ReactNode;
 }) {
+  const reduceMotion = useReducedMotion();
+
   return (
-    <div className="min-h-screen flex flex-col relative overflow-hidden">
-      {/* Animated gradient background */}
-      <div
-        className="fixed inset-0 -z-10 bg-[#F7F9FC]"
-        aria-hidden
-      >
-        <div className="absolute inset-0 bg-gradient-to-br from-primary-500/[0.04] via-transparent to-secondary-100/50" />
-        <div className="absolute top-0 left-1/4 w-96 h-96 bg-primary-400/10 rounded-full blur-3xl animate-onboarding-pulse-soft" />
-        <div className="absolute bottom-1/4 right-1/4 w-80 h-80 bg-primary-500/10 rounded-full blur-3xl animate-onboarding-pulse-soft" style={{ animationDelay: "1s" }} />
-        <div
-          className="absolute inset-0 opacity-[0.015]"
-          style={{
-            backgroundImage: `url("data:image/svg+xml,%3Csvg width='40' height='40' viewBox='0 0 40 40' xmlns='http://www.w3.org/2000/svg'%3E%3Cpath d='M20 20m-2 0a2 2 0 1 0 4 0a2 2 0 1 0 -4 0' fill='%232B5FD9'/%3E%3C/svg%3E")`,
-          }}
+    <div className="relative flex min-h-screen flex-col overflow-hidden">
+      <div className="fixed inset-0 -z-10 bg-[#f7f9fb]" aria-hidden>
+        <div className="bg-pattern absolute inset-0 opacity-80" />
+        <div className="absolute inset-0 bg-gradient-to-br from-primary-500/[0.06] via-transparent to-slate-200/40" />
+        <motion.div
+          className="absolute -left-20 top-20 h-[28rem] w-[28rem] rounded-full bg-primary-400/15 blur-3xl"
+          animate={
+            reduceMotion
+              ? {}
+              : {
+                  x: [0, 24, 0],
+                  y: [0, -16, 0],
+                }
+          }
+          transition={{ duration: 18, repeat: Infinity, ease: "easeInOut" }}
         />
+        <motion.div
+          className="absolute bottom-0 right-0 h-[22rem] w-[22rem] rounded-full bg-amber-300/20 blur-3xl"
+          animate={
+            reduceMotion
+              ? {}
+              : {
+                  x: [0, -20, 0],
+                  y: [0, 12, 0],
+                }
+          }
+          transition={{ duration: 22, repeat: Infinity, ease: "easeInOut" }}
+        />
+        <div className="absolute bottom-1/3 right-1/4 h-64 w-64 rounded-full bg-violet-400/10 blur-3xl animate-onboarding-aurora" />
       </div>
 
-      <header className="shrink-0 sticky top-0 z-40 animate-in fade-in duration-500">
-        <div
-          className="border-b border-white/20 bg-white/75 backdrop-blur-xl shadow-sm"
-          style={{ boxShadow: "0 1px 0 0 rgba(43, 95, 217, 0.06)" }}
-        >
-          <div className="flex items-center justify-between px-4 py-3 sm:px-6">
+      <header className="sticky top-0 z-40 shrink-0">
+        <div className="h-1 bg-gradient-to-r from-[#0f1b2d] via-primary-600 to-amber-400" aria-hidden />
+        <div className="border-b border-white/20 bg-slate-50/80 shadow-sm backdrop-blur-md">
+          <div className="flex items-center justify-between px-4 py-3 sm:px-6 lg:px-8">
             <Link
               href="/"
-              className="flex items-center gap-2.5 text-primary-600 hover:text-primary-500 transition-all duration-300 hover:opacity-90 group"
+              className="group flex items-center text-primary-700 transition-colors hover:text-primary-600"
               aria-label="MyCollegePath home"
             >
-              <span className="flex h-9 w-9 items-center justify-center rounded-xl bg-gradient-to-br from-primary-500 to-primary-600 text-white shadow-md transition-transform duration-300 group-hover:scale-105">
-                <LogoIcon className="h-5 w-5 shrink-0" />
-              </span>
-              <span className="text-lg font-bold text-text-primary tracking-tight">
-                MyCollegePath<span className="text-primary-500">.ai</span>
-              </span>
+              <LogoWordmark className="h-10 w-auto transition-transform duration-300 group-hover:scale-[1.02]" />
             </Link>
-            <button
-              type="button"
-              className="rounded-xl p-2.5 text-text-muted hover:bg-primary-500/10 hover:text-primary-600 transition-all duration-300 hover:scale-105"
-              aria-label="Settings"
-            >
-              <Settings className="h-5 w-5" />
-            </button>
           </div>
           <OnboardingProgress />
         </div>
       </header>
 
-      <main className="flex-1 mx-auto w-full max-w-4xl px-4 py-6 sm:py-8 space-y-5">
-        {/* Privacy strip - animated entrance */}
-        <div
-          className="rounded-2xl border border-primary-500/20 bg-white/90 backdrop-blur-sm px-4 py-3.5 text-xs text-text-secondary shadow-sm flex items-start gap-3 animate-in fade-in slide-in-from-top-2 duration-500"
-          style={{ animationDelay: "100ms", animationFillMode: "backwards" }}
+      <main className="mx-auto w-full max-w-6xl flex-1 space-y-6 px-4 py-8 sm:px-6 sm:py-10 lg:px-8">
+        <motion.div
+          className="flex items-start gap-4 rounded-2xl border border-emerald-200 bg-emerald-50/90 px-4 py-4 text-sm text-emerald-900 shadow-sm backdrop-blur-sm sm:gap-5 sm:px-5 sm:py-4"
+          initial={reduceMotion ? false : { opacity: 0, y: -10 }}
+          animate={{ opacity: 1, y: 0 }}
+          transition={{ type: "spring", stiffness: 260, damping: 28 }}
         >
-          <div className="mt-0.5 flex h-9 w-9 shrink-0 items-center justify-center rounded-xl bg-primary-500/15 text-primary-600">
+          <div className="mt-0.5 flex h-11 w-11 shrink-0 items-center justify-center rounded-xl border border-emerald-200 bg-white text-emerald-700 shadow-sm">
             <ShieldCheck className="h-5 w-5" aria-hidden />
           </div>
           <div className="min-w-0 flex-1">
-            <p className="font-semibold text-[11px] uppercase tracking-wider text-text-muted flex items-center gap-1.5">
-              <Lock className="h-3 w-3" aria-hidden />
-              Your data & privacy
+            <p className="flex items-center gap-2 text-[11px] font-bold uppercase tracking-[0.2em] text-emerald-800/90">
+              <Lock className="h-3.5 w-3.5" aria-hidden />
+              Your data &amp; privacy
             </p>
-            <p className="mt-1.5 leading-relaxed">
+            <p className="mt-2 leading-relaxed text-emerald-950/80">
               Your answers are used only to personalize your college guidance. We never sell your data, and you can request deletion at any time.
             </p>
             <Link
-              href="/#privacy"
-              className="mt-2 inline-flex text-[11px] font-semibold text-primary-500 hover:text-primary-600 hover:underline transition-colors"
+              href="/privacy"
+              className="mt-2 inline-flex text-xs font-semibold text-primary-700 underline-offset-2 hover:text-primary-600 hover:underline"
             >
               Learn more in our privacy policy
             </Link>
           </div>
-        </div>
-        <div className="grid gap-5 lg:grid-cols-[minmax(0,1fr)_280px]">
-          <div>{children}</div>
+        </motion.div>
+
+        <div className="grid gap-6 lg:grid-cols-[minmax(0,1fr)_300px] lg:gap-8">
+          <div className="min-w-0">{children}</div>
           <aside className="hidden lg:block">
             <div className="sticky top-28 space-y-4">
-              <div className="rounded-2xl border border-primary-200 bg-white/85 p-4 shadow-sm backdrop-blur-sm">
-                <p className="text-[11px] font-semibold uppercase tracking-wider text-primary-600">Real-time personalization</p>
-                <p className="mt-1 text-xs leading-relaxed text-text-secondary">
-                  As you answer each question, we improve your matching, roadmap, and AI coaching outputs.
+              <motion.div
+                className="rounded-2xl border border-blue-200 bg-blue-50/90 p-5 shadow-md backdrop-blur-sm"
+                initial={reduceMotion ? false : { opacity: 0, x: 12 }}
+                animate={{ opacity: 1, x: 0 }}
+                transition={{
+                  delay: reduceMotion ? 0 : 0.05,
+                  type: "spring",
+                  stiffness: 280,
+                  damping: 30,
+                }}
+              >
+                <div className="flex items-center gap-3">
+                  <span className="flex h-10 w-10 items-center justify-center rounded-xl bg-white text-primary-700 shadow-sm ring-1 ring-blue-100">
+                    <Sparkles className="h-5 w-5" aria-hidden />
+                  </span>
+                  <p className="text-[11px] font-bold uppercase tracking-wider text-primary-700">
+                    Real-time personalization
+                  </p>
+                </div>
+                <p className="mt-3 text-xs leading-relaxed text-slate-700">
+                  As you answer each question, we improve your matching and roadmap outputs.
                 </p>
-              </div>
-              <div className="rounded-2xl border border-bg-border bg-white/80 p-4 shadow-sm backdrop-blur-sm">
-                <p className="text-[11px] font-semibold uppercase tracking-wider text-text-muted">What unlocks next?</p>
-                <ul className="mt-2 space-y-2 text-xs text-text-secondary">
-                  <li className="rounded-lg bg-primary-50 px-2.5 py-2">Better reach/match/safety balance</li>
-                  <li className="rounded-lg bg-emerald-50 px-2.5 py-2">More specific AI guidance</li>
-                  <li className="rounded-lg bg-indigo-50 px-2.5 py-2">Stronger roadmap priorities</li>
+              </motion.div>
+
+              <motion.div
+                className="rounded-2xl border border-slate-200/90 bg-white/90 p-5 shadow-md backdrop-blur-sm"
+                initial={reduceMotion ? false : { opacity: 0, x: 12 }}
+                animate={{ opacity: 1, x: 0 }}
+                transition={{
+                  delay: reduceMotion ? 0 : 0.1,
+                  type: "spring",
+                  stiffness: 280,
+                  damping: 30,
+                }}
+              >
+                <div className="flex items-center gap-3 border-b border-slate-100 pb-3">
+                  <span className="flex h-10 w-10 items-center justify-center rounded-xl bg-violet-50 text-violet-700 ring-1 ring-violet-100">
+                    <Route className="h-5 w-5" aria-hidden />
+                  </span>
+                  <p className="text-[11px] font-bold uppercase tracking-wider text-slate-600">
+                    What unlocks next?
+                  </p>
+                </div>
+                <ul className="mt-4 space-y-3 text-xs text-slate-700">
+                  <li className="flex items-start gap-2 rounded-xl border border-emerald-200/80 bg-emerald-50/80 px-3 py-2.5">
+                    <Target className="mt-0.5 h-4 w-4 shrink-0 text-emerald-600" aria-hidden />
+                    <span>Better reach / match / safety balance</span>
+                  </li>
+                  <li className="flex items-start gap-2 rounded-xl border border-blue-200/80 bg-blue-50/80 px-3 py-2.5">
+                    <Sparkles className="mt-0.5 h-4 w-4 shrink-0 text-primary-600" aria-hidden />
+                    <span>More specific guidance</span>
+                  </li>
+                  <li className="flex items-start gap-2 rounded-xl border border-violet-200/80 bg-violet-50/80 px-3 py-2.5">
+                    <Route className="mt-0.5 h-4 w-4 shrink-0 text-violet-600" aria-hidden />
+                    <span>Stronger roadmap priorities</span>
+                  </li>
                 </ul>
-              </div>
+              </motion.div>
             </div>
           </aside>
         </div>

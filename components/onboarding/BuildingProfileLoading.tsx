@@ -41,12 +41,18 @@ function buildInfoItems(draft: Partial<OnboardingDraft>): { label: string; value
   if (draft.satTotal != null || draft.satScore != null) items.push({ label: "SAT", value: String(draft.satTotal ?? draft.satScore ?? "") });
   if (draft.actScore != null) items.push({ label: "ACT", value: String(draft.actScore) });
   if (draft.areasOfInterest?.length) items.push({ label: "Interests", value: draft.areasOfInterest.slice(0, 3).join(", ") });
-  if (draft.preferredStates?.length) items.push({ label: "Target states", value: draft.preferredStates.slice(0, 5).join(", ") + (draft.preferredStates.length > 5 ? "…" : "") });
-  const campus = draft.campusUrbanSuburbanRural || draft.preferredSize;
+  const prefStates = draft.locationPreferenceStates?.length ? draft.locationPreferenceStates : draft.preferredStates;
+  if (prefStates?.length) items.push({ label: "Target states", value: prefStates.slice(0, 5).join(", ") + (prefStates.length > 5 ? "…" : "") });
+  const campus =
+    draft.campusUrbanSuburbanRural?.length
+      ? draft.campusUrbanSuburbanRural.join(", ")
+      : draft.preferredSize;
   if (campus) items.push({ label: "Campus", value: campus });
   if (draft.careerPathWhat) items.push({ label: "Career path", value: draft.careerPathWhat });
   if (draft.activityTypes?.length) items.push({ label: "Activities", value: draft.activityTypes.map((a) => a.type).slice(0, 3).join(", ") + (draft.activityTypes.length > 3 ? "…" : "") });
-  if (draft.applicationStrategy) items.push({ label: "Application", value: draft.applicationStrategy });
+  if (draft.applicationStrategy?.length) {
+    items.push({ label: "Application", value: draft.applicationStrategy.join(", ") });
+  }
   return items;
 }
 

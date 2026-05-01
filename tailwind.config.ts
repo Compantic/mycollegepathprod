@@ -11,6 +11,7 @@ const config: Config = {
     extend: {
       colors: {
         primary: {
+          700: "#173AA8",
           600: "#1F4DB8",
           500: "#2B5FD9",
           400: "#3F76E8",
@@ -50,6 +51,10 @@ const config: Config = {
         soft: "0px 10px 25px rgba(15, 23, 42, 0.08)",
         glow: "0 0 40px rgba(43, 95, 217, 0.08)",
         "glow-lg": "0 0 60px rgba(43, 95, 217, 0.12)",
+        "onboarding-card":
+          "0 25px 50px -12px rgba(15, 27, 45, 0.12), 0 0 0 1px rgba(255, 255, 255, 0.8) inset, 0 0 40px rgba(43, 95, 217, 0.06)",
+        "onboarding-card-hover":
+          "0 32px 64px -12px rgba(15, 27, 45, 0.16), 0 0 0 1px rgba(43, 95, 217, 0.12), 0 0 48px rgba(43, 95, 217, 0.1)",
       },
       fontFamily: {
         sans: ["var(--font-inter)", "Inter", "system-ui", "-apple-system", "BlinkMacSystemFont", "sans-serif"],
@@ -90,6 +95,14 @@ const config: Config = {
           "0%, 100%": { opacity: "1" },
           "50%": { opacity: "0.85" },
         },
+        "onboarding-aurora": {
+          "0%, 100%": { transform: "translate(0, 0) scale(1)", opacity: "0.5" },
+          "50%": { transform: "translate(4%, -3%) scale(1.05)", opacity: "0.65" },
+        },
+        "onboarding-shimmer-line": {
+          "0%": { transform: "translateX(-100%)" },
+          "100%": { transform: "translateX(100%)" },
+        },
       },
       animation: {
         "onboarding-float": "onboarding-float 3s ease-in-out infinite",
@@ -97,6 +110,8 @@ const config: Config = {
         "onboarding-scale-in": "onboarding-scale-in 0.4s ease-out forwards",
         "onboarding-shine": "onboarding-shine 3s ease-in-out infinite",
         "onboarding-pulse-soft": "onboarding-pulse-soft 2s ease-in-out infinite",
+        "onboarding-aurora": "onboarding-aurora 14s ease-in-out infinite",
+        "onboarding-shimmer-line": "onboarding-shimmer-line 2.5s ease-in-out infinite",
       },
     },
   },

@@ -3,9 +3,9 @@
 import { useEffect, useState } from "react";
 import Link from "next/link";
 import Image from "next/image";
-import { motion, AnimatePresence } from "framer-motion";
+import { motion, AnimatePresence, useReducedMotion } from "framer-motion";
+import { LayoutGrid, ClipboardList, FileText, MapPin, Sparkles, Plus, Star } from "lucide-react";
 import { Skeleton } from "@/components/ui/skeleton";
-import { AppCard } from "@/components/ui/AppCard";
 import { auth } from "@/lib/firebase/client";
 import { addFavoriteCollege, removeFavoriteCollege, getFavoriteColleges, getStudentProfile } from "@/lib/firebase/firestore";
 import { useToastOptional } from "@/components/ui/toast";
@@ -37,7 +37,33 @@ interface College {
   latest?: {
     student?: { size?: number };
     admission?: { admission_rate?: number };
-    cost?: { tuition?: number; roomboard?: number };
+    admissions?: {
+      admission_rate?: { overall?: number };
+      sat_scores?: {
+        "25th_percentile"?: { critical_reading?: number; math?: number };
+        "75th_percentile"?: { critical_reading?: number; math?: number };
+      };
+      act_scores?: {
+        "25th_percentile"?: { cumulative?: number };
+        "75th_percentile"?: { cumulative?: number };
+      };
+    };
+    cost?: {
+      tuition?: number;
+      roomboard?: number;
+      avg_net_price?: {
+        overall?: number;
+        by_income_level?: {
+          "0-30000"?: number;
+          "30001-48000"?: number;
+          "48001-75000"?: number;
+          "75001-110000"?: number;
+          "110001-plus"?: number;
+        };
+      };
+    };
+    aid?: { median_debt?: { completers?: { monthly_payments?: number } } };
+    earnings?: { "10_yrs_after_entry"?: { median?: number } };
   };
   avgGpa?: number;
 }
@@ -99,6 +125,7 @@ export function CollegeDetail({ collegeId, basePath = "/colleges" }: { collegeId
   const [whyFitLoading, setWhyFitLoading] = useState(false);
   const [enrich, setEnrich] = useState<EnrichData | null>(null);
   const [heroImageUrl, setHeroImageUrl] = useState<string | null>(null);
+  const reduceMotion = useReducedMotion();
 
   useEffect(() => {
     let cancelled = false;
@@ -201,14 +228,17 @@ export function CollegeDetail({ collegeId, basePath = "/colleges" }: { collegeId
   useEffect(() => {
     if (!college?.name) return;
     let cancelled = false;
-    fetch(`/api/college/image?name=${encodeURIComponent(college.name)}`)
+    const params = new URLSearchParams({ name: college.name });
+    if (college.city) params.set("city", college.city);
+    if (college.state) params.set("state", college.state);
+    fetch(`/api/college/image?${params.toString()}`)
       .then((res) => res.ok ? res.json() : null)
       .then((data) => {
         if (!cancelled && data?.imageUrl) setHeroImageUrl(data.imageUrl);
       })
       .catch(() => {});
     return () => { cancelled = true; };
-  }, [college?.name]);
+  }, [college?.name, college?.city, college?.state]);
 
   async function toggleFavorite(e: React.MouseEvent) {
     e.preventDefault();
@@ -235,12 +265,13 @@ export function CollegeDetail({ collegeId, basePath = "/colleges" }: { collegeId
   if (loading) {
     return (
       <div className="space-y-6">
-        <Skeleton className="h-32 w-full rounded-card" />
-        <Skeleton className="h-10 w-full" />
+        <Skeleton className="h-9 w-56 rounded-xl" />
+        <Skeleton className="h-64 w-full rounded-3xl sm:h-80" />
+        <Skeleton className="h-12 w-full max-w-md rounded-2xl" />
         <div className="grid gap-4 sm:grid-cols-3">
-          <Skeleton className="h-24 rounded-card" />
-          <Skeleton className="h-24 rounded-card" />
-          <Skeleton className="h-24 rounded-card" />
+          <Skeleton className="h-36 rounded-2xl" />
+          <Skeleton className="h-36 rounded-2xl" />
+          <Skeleton className="h-36 rounded-2xl" />
         </div>
       </div>
     );
@@ -248,22 +279,32 @@ export function CollegeDetail({ collegeId, basePath = "/colleges" }: { collegeId
 
   if (error || !college) {
     return (
-      <AppCard className="p-8 text-center">
-        <p className="text-text-secondary">{error || "College not found."}</p>
-        <Link href={basePath} className="mt-4 inline-block text-primary-500 hover:underline">
+      <div className="rounded-3xl border border-rose-200 bg-gradient-to-br from-rose-50 to-white p-10 text-center shadow-onboarding-card">
+        <p className="text-slate-700">{error || "College not found."}</p>
+        <Link href={basePath} className="mt-5 inline-flex font-bold text-primary-700 hover:underline">
           ← Back to colleges
         </Link>
-      </AppCard>
+      </div>
     );
   }
 
   const rate = college.latest?.admission?.admission_rate ?? college.admission?.admission_rate;
+  const latestRate = college.latest?.admissions?.admission_rate?.overall;
+  const acceptanceRate = latestRate ?? rate;
   const size = college.latest?.student?.size ?? college.student?.size;
   const tuition = college.latest?.cost?.tuition;
   const roomboard = college.latest?.cost?.roomboard;
+  const avgNetPrice = college.latest?.cost?.avg_net_price?.overall;
+  const familyIncomeCosts = college.latest?.cost?.avg_net_price?.by_income_level;
+  const monthlyLoan = college.latest?.aid?.median_debt?.completers?.monthly_payments;
+  const medianEarnings = college.latest?.earnings?.["10_yrs_after_entry"]?.median;
   const locationStr = [college.city, college.state].filter(Boolean).join(", ");
   const sat = college.admission?.sat_scores?.midpoint;
+  const sat25 = college.latest?.admissions?.sat_scores?.["25th_percentile"];
+  const sat75 = college.latest?.admissions?.sat_scores?.["75th_percentile"];
   const act = college.admission?.act_scores?.midpoint?.cumulative;
+  const act25 = college.latest?.admissions?.act_scores?.["25th_percentile"]?.cumulative;
+  const act75 = college.latest?.admissions?.act_scores?.["75th_percentile"]?.cumulative;
   const satTotal = sat && (sat.critical_reading != null || sat.math != null || sat.writing != null)
     ? (sat.critical_reading ?? 0) + (sat.math ?? 0) + (sat.writing ?? 0)
     : null;
@@ -279,17 +320,20 @@ export function CollegeDetail({ collegeId, basePath = "/colleges" }: { collegeId
 
   const initial = college.name.replace(/\b(\w)/g, (_, c) => c).slice(0, 1).toUpperCase() || "—";
   const shortNote = (s: string | undefined) => (s && s.length > 26 ? s.slice(0, 25) + "…" : s);
-  const categoryLabel = rate != null && rate < 0.2 ? "REACH" : rate != null && rate > 0.6 ? "SAFETY" : "MATCH";
+  const categoryLabel = acceptanceRate != null && acceptanceRate < 0.2 ? "REACH" : acceptanceRate != null && acceptanceRate > 0.6 ? "SAFETY" : "MATCH";
   const scorecardUrl = `https://collegescorecard.ed.gov/school/?id=${college.id}`;
 
   const containerVariants = {
     hidden: { opacity: 0 },
     visible: {
       opacity: 1,
-      transition: { staggerChildren: 0.06, delayChildren: 0.1 },
+      transition: { staggerChildren: reduceMotion ? 0 : 0.07, delayChildren: reduceMotion ? 0 : 0.08 },
     },
   };
-  const itemVariants = { hidden: { opacity: 0, y: 12 }, visible: { opacity: 1, y: 0 } };
+  const itemVariants = {
+    hidden: { opacity: 0, y: reduceMotion ? 0 : 14 },
+    visible: { opacity: 1, y: 0, transition: { type: "spring" as const, stiffness: 300, damping: 28 } },
+  };
 
   return (
     <motion.div
@@ -298,93 +342,107 @@ export function CollegeDetail({ collegeId, basePath = "/colleges" }: { collegeId
       initial="hidden"
       animate="visible"
     >
-      <nav className="text-sm text-text-muted" aria-label="Breadcrumb">
-        <Link href={basePath} className="hover:text-[#2563EB]">Colleges</Link>
-        <span className="mx-2">/</span>
-        <span className="font-medium text-[#111827]">{college.name}</span>
+      <nav className="text-sm text-slate-500" aria-label="Breadcrumb">
+        <Link href={basePath} className="font-medium text-primary-700 transition-colors hover:text-primary-600">
+          Colleges
+        </Link>
+        <span className="mx-2 text-slate-300">/</span>
+        <span className="font-semibold text-slate-900">{college.name}</span>
       </nav>
 
-      {/* Hero: full-width image with overlay */}
       <motion.section
-        className="relative h-[280px] sm:h-[320px] w-full overflow-hidden rounded-2xl"
+        className="relative h-[300px] w-full overflow-hidden rounded-3xl border border-white/10 shadow-2xl sm:h-[340px]"
         variants={itemVariants}
       >
         {heroImageUrl ? (
-          <Image
-            src={heroImageUrl}
-            alt=""
-            fill
-            className="object-cover"
-            sizes="100vw"
-            priority
-          />
+          <Image src={heroImageUrl} alt="" fill className="object-cover" sizes="100vw" priority />
         ) : (
-          <div className="absolute inset-0 bg-gradient-to-br from-[#1e3a5f] via-[#2563EB] to-[#7C3AED]" aria-hidden />
+          <div
+            className="absolute inset-0 bg-gradient-to-br from-[#0f1b2d] via-primary-700 to-[#162236]"
+            aria-hidden
+          />
         )}
-        <div className="absolute inset-0 bg-black/50" aria-hidden />
-        <div className="absolute inset-0 flex flex-col justify-end p-6 sm:p-8">
-          <div className="flex flex-col gap-3 sm:flex-row sm:items-end sm:justify-between">
-            <div className="flex gap-4 items-end">
-              <div className="h-14 w-14 sm:h-16 sm:w-16 shrink-0 rounded-xl border-2 border-white/30 bg-white/10 backdrop-blur flex items-center justify-center text-2xl font-bold text-white shadow-lg" aria-hidden>
+        <div className="absolute inset-0 bg-gradient-to-t from-[#0f1b2d]/95 via-slate-900/45 to-transparent" aria-hidden />
+        <div className="absolute inset-0 bg-pattern opacity-20" aria-hidden />
+        <div className="absolute inset-0 flex flex-col justify-end p-6 sm:p-9">
+          <div className="flex flex-col gap-4 sm:flex-row sm:items-end sm:justify-between">
+            <div className="flex items-end gap-4">
+              <div
+                className="flex h-16 w-16 shrink-0 items-center justify-center rounded-2xl border border-white/25 bg-white/15 text-2xl font-bold text-white shadow-lg backdrop-blur-md sm:h-[4.5rem] sm:w-[4.5rem]"
+                aria-hidden
+              >
                 {initial}
               </div>
               <div>
                 <div className="flex flex-wrap items-center gap-2">
-                  <h1 className="text-2xl sm:text-3xl font-bold text-white drop-shadow-md">{college.name}</h1>
-                  <span className={`inline-flex rounded-full px-2.5 py-0.5 text-xs font-medium text-white ${categoryLabel === "REACH" ? "bg-amber-500" : categoryLabel === "SAFETY" ? "bg-emerald-500" : "bg-blue-500"}`}>
+                  <h1 className="text-2xl font-semibold tracking-tight text-white drop-shadow-sm sm:text-3xl lg:text-4xl">
+                    {college.name}
+                  </h1>
+                  <span
+                    className={`inline-flex rounded-full border px-3 py-0.5 text-[11px] font-bold uppercase tracking-wider ${
+                      categoryLabel === "REACH"
+                        ? "border-amber-300 bg-amber-200 text-amber-950"
+                        : categoryLabel === "SAFETY"
+                          ? "border-emerald-200 bg-emerald-100 text-emerald-900"
+                          : "border-blue-200 bg-blue-100 text-blue-900"
+                    }`}
+                  >
                     {categoryLabel}
                   </span>
                 </div>
-                <div className="mt-1.5 flex flex-wrap items-center gap-4 text-sm text-white/90">
+                <div className="mt-2 flex flex-wrap items-center gap-4 text-sm text-slate-200">
                   {locationStr && (
-                    <span className="inline-flex items-center gap-1">
-                      <svg width="14" height="14" viewBox="0 0 24 24" fill="none" stroke="currentColor" strokeWidth="2" aria-hidden><path d="M20 10c0 6-8 12-8 12s-8-6-8-12a8 8 0 0 1 16 0Z"/><circle cx="12" cy="10" r="3"/></svg>
+                    <span className="inline-flex items-center gap-1.5">
+                      <MapPin className="h-4 w-4 text-amber-300" aria-hidden />
                       {locationStr}
                     </span>
                   )}
-                  <span className="inline-flex items-center gap-1">Private Research University</span>
+                  <span>Private research university</span>
                 </div>
               </div>
             </div>
-            <button
+            <motion.button
               type="button"
               onClick={toggleFavorite}
               disabled={favoriteLoading}
-              className="mt-3 sm:mt-0 inline-flex items-center justify-center gap-2 h-[42px] px-5 rounded-xl bg-white text-[#1e3a5f] font-semibold text-sm hover:bg-white/90 disabled:opacity-60 shadow-lg transition-transform hover:scale-[1.02]"
+              whileHover={reduceMotion ? undefined : { scale: 1.03 }}
+              whileTap={reduceMotion ? undefined : { scale: 0.98 }}
+              className="mt-2 inline-flex h-12 items-center justify-center gap-2 rounded-xl bg-white px-6 text-sm font-bold text-[#0f2a5f] shadow-xl transition-colors hover:bg-amber-50 disabled:opacity-60 sm:mt-0"
             >
-              <span className="text-lg leading-none">+</span>
-              {isFavorite ? "On My List" : "Add to My List"}
-            </button>
+              {isFavorite ? <Star className="h-4 w-4 fill-amber-400 text-amber-500" /> : <Plus className="h-4 w-4" />}
+              {isFavorite ? "On my list" : "Add to my list"}
+            </motion.button>
           </div>
         </div>
       </motion.section>
 
       {enrich?.aboutLine && (
-        <motion.p className="text-sm text-[#374151] leading-relaxed px-1" variants={itemVariants}>
+        <motion.p className="rounded-2xl border border-slate-200/80 bg-white/80 px-4 py-3 text-sm leading-relaxed text-slate-600 shadow-sm" variants={itemVariants}>
           {enrich.aboutLine}
         </motion.p>
       )}
 
-      {/* Tabs */}
-      <motion.div className="border-b border-[#E5E7EB]" variants={itemVariants}>
-        <nav className="flex gap-6" aria-label="College sections">
-          {TABS.map((tab) => (
-            <button
-              key={tab.id}
-              type="button"
-              onClick={() => setActiveTab(tab.id)}
-              className={`flex items-center gap-2 border-b-2 pb-3 text-sm font-medium transition-colors ${
-                activeTab === tab.id
-                  ? "border-[#2563EB] text-[#2563EB]"
-                  : "border-transparent text-[#6B7280] hover:text-[#111827]"
-              }`}
-            >
-              {tab.icon === "grid" && <svg width="16" height="16" viewBox="0 0 24 24" fill="none" stroke="currentColor" strokeWidth="2" aria-hidden><rect x="3" y="3" width="7" height="7"/><rect x="14" y="3" width="7" height="7"/><rect x="14" y="14" width="7" height="7"/><rect x="3" y="14" width="7" height="7"/></svg>}
-              {tab.icon === "checklist" && <svg width="16" height="16" viewBox="0 0 24 24" fill="none" stroke="currentColor" strokeWidth="2" aria-hidden><path d="M9 11l3 3L22 4"/><path d="M21 12v7a2 2 0 0 1-2 2H5a2 2 0 0 1-2-2V5a2 2 0 0 1 2-2h11"/></svg>}
-              {tab.icon === "doc" && <svg width="16" height="16" viewBox="0 0 24 24" fill="none" stroke="currentColor" strokeWidth="2" aria-hidden><path d="M14 2H6a2 2 0 0 0-2 2v16a2 2 0 0 0 2 2h12a2 2 0 0 0 2-2V8z"/><polyline points="14 2 14 8 20 8"/><line x1="16" y1="13" x2="8" y2="13"/><line x1="16" y1="17" x2="8" y2="17"/></svg>}
-              {tab.label}
-            </button>
-          ))}
+      <motion.div className="rounded-2xl border border-slate-200/80 bg-slate-50/80 p-1.5 shadow-inner" variants={itemVariants}>
+        <nav className="flex gap-1" aria-label="College sections">
+          {TABS.map((tab) => {
+            const Icon = tab.icon === "grid" ? LayoutGrid : tab.icon === "checklist" ? ClipboardList : FileText;
+            const active = activeTab === tab.id;
+            return (
+              <button
+                key={tab.id}
+                type="button"
+                onClick={() => setActiveTab(tab.id)}
+                className={`flex flex-1 items-center justify-center gap-2 rounded-xl px-3 py-2.5 text-sm font-semibold transition-all sm:flex-initial sm:px-5 ${
+                  active
+                    ? "bg-white text-primary-700 shadow-md ring-1 ring-primary-200"
+                    : "text-slate-500 hover:bg-white/60 hover:text-slate-800"
+                }`}
+              >
+                <Icon className="h-4 w-4 shrink-0" aria-hidden />
+                <span className="text-xs font-semibold sm:text-sm">{tab.label}</span>
+              </button>
+            );
+          })}
         </nav>
       </motion.div>
 
@@ -399,81 +457,181 @@ export function CollegeDetail({ collegeId, basePath = "/colleges" }: { collegeId
             exit={{ opacity: 0, y: -8 }}
             transition={{ duration: 0.2 }}
           >
-            <div className="lg:col-span-2 space-y-6">
+            <div className="space-y-6 lg:col-span-2">
               <div>
-                <h2 className="text-sm font-semibold text-[#374151] uppercase tracking-wider mb-4">Key Performance Indicators</h2>
-                <div className="grid grid-cols-1 sm:grid-cols-3 gap-4">
-                <div className="rounded-card border border-[#E5E7EB] bg-white p-4 shadow-soft">
-                  <p className="text-xs font-semibold text-[#6B7280] uppercase tracking-wider">Acceptance Rate</p>
-                  <p className="mt-1 text-xl font-bold text-[#111827]">
-                    {rate != null
-                      ? `${(rate * 100).toFixed(1)}%`
-                      : (enrich?.acceptanceNote?.includes("%") ? shortNote(enrich.acceptanceNote) : null) ?? "—"}
-                  </p>
-                  <p className="text-xs text-[#6B7280] mt-0.5">
-                    {rate == null
-                      ? "Selectivity data limited"
-                      : rate < 0.15
-                      ? "Highly selective"
-                      : rate < 0.4
-                      ? "Moderately selective"
-                      : "More accessible"}
-                  </p>
+                <p className="text-[11px] font-bold uppercase tracking-[0.2em] text-primary-700">At a glance</p>
+                <h2 className="mt-1 text-lg font-semibold text-slate-900">Key performance indicators</h2>
+                <div className="mt-4 grid grid-cols-1 gap-4 sm:grid-cols-3">
+                  <div className="rounded-2xl border border-blue-200 bg-gradient-to-br from-blue-50/90 to-white p-5 shadow-md">
+                    <p className="text-[11px] font-bold uppercase tracking-wider text-blue-800/80">Acceptance rate</p>
+                    <p className="mt-2 text-2xl font-bold tabular-nums text-slate-900">
+                      {acceptanceRate != null
+                        ? `${(acceptanceRate * 100).toFixed(1)}%`
+                        : (enrich?.acceptanceNote?.includes("%") ? shortNote(enrich.acceptanceNote) : null) ?? "—"}
+                    </p>
+                    <p className="mt-1 text-xs text-slate-600">
+                      {acceptanceRate == null
+                        ? "Selectivity data limited"
+                        : acceptanceRate < 0.15
+                          ? "Highly selective"
+                          : acceptanceRate < 0.4
+                            ? "Moderately selective"
+                            : "More accessible"}
+                    </p>
+                  </div>
+                  <div className="rounded-2xl border border-emerald-200 bg-gradient-to-br from-emerald-50/90 to-white p-5 shadow-md">
+                    <p className="text-[11px] font-bold uppercase tracking-wider text-emerald-800/80">Average GPA</p>
+                    <p className="mt-2 text-2xl font-bold tabular-nums text-slate-900">
+                      {college.avgGpa != null ? college.avgGpa.toFixed(2) : shortNote(enrich?.gpaNote) ?? "—"}
+                    </p>
+                    <p className="mt-1 text-xs text-slate-600">Unweighted, estimated</p>
+                  </div>
+                  <div className="rounded-2xl border border-violet-200 bg-gradient-to-br from-violet-50/90 to-white p-5 shadow-md">
+                    <p className="text-[11px] font-bold uppercase tracking-wider text-violet-800/80">Enrollment</p>
+                    <p className="mt-2 text-2xl font-bold tabular-nums text-slate-900">
+                      {size != null
+                        ? size >= 1000
+                          ? `${(size / 1000).toFixed(0)}k+`
+                          : size.toLocaleString()
+                        : shortNote(enrich?.enrollmentNote) ?? "—"}
+                    </p>
+                    <p className="mt-1 text-xs text-slate-600">Students on campus</p>
+                  </div>
                 </div>
-                <div className="rounded-card border border-[#E5E7EB] bg-white p-4 shadow-soft">
-                  <p className="text-xs font-semibold text-[#6B7280] uppercase tracking-wider">Average GPA</p>
-                  <p className="mt-1 text-xl font-bold text-[#111827]">
-                    {college.avgGpa != null ? college.avgGpa.toFixed(2) : shortNote(enrich?.gpaNote) ?? "—"}
-                  </p>
-                  <p className="text-xs text-[#6B7280] mt-0.5">(Unweighted, estimated)</p>
+              </div>
+
+              <div className="relative overflow-hidden rounded-3xl border border-blue-200 bg-gradient-to-br from-blue-50 via-white to-primary-50/40 p-6 shadow-lg">
+                <div className="pointer-events-none absolute -right-10 top-0 h-32 w-32 rounded-full bg-primary-400/15 blur-2xl" />
+                <h2 className="flex items-center gap-2 font-bold text-primary-800">
+                  <Sparkles className="h-5 w-5 text-amber-500" aria-hidden />
+                  Why this college is a good fit
+                  {whyFitLoading && (
+                    <span className="text-xs font-normal text-slate-500">(generating…)</span>
+                  )}
+                </h2>
+                <p className="relative mt-3 text-sm leading-relaxed text-slate-700">{whyFit}</p>
+              </div>
+
+              {/* NEW: ADMISSION REQUIREMENTS SUMMARY */}
+              <div className="grid grid-cols-1 md:grid-cols-2 gap-4">
+                <div className="rounded-3xl border border-slate-200 bg-white p-6 shadow-md">
+                  <div className="flex items-center gap-2 mb-4">
+                    <ClipboardList className="size-5 text-primary-600" />
+                    <h3 className="font-bold text-slate-900">Admission Requirements</h3>
+                  </div>
+                  <div className="space-y-3">
+                    <div className="flex justify-between items-center text-sm border-b border-slate-50 pb-2">
+                      <span className="text-slate-500">SAT Range</span>
+                      <span className="font-black text-slate-900">{satTotal != null && satTotal > 0 ? satTotal : (sat25?.math ? `${(sat25.critical_reading ?? 0) + (sat25.math ?? 0)} - ${(sat75?.critical_reading ?? 0) + (sat75?.math ?? 0)}` : "Test Optional")}</span>
+                    </div>
+                    <div className="flex justify-between items-center text-sm border-b border-slate-50 pb-2">
+                      <span className="text-slate-500">ACT Range</span>
+                      <span className="font-black text-slate-900">{act != null ? act : (act25 ? `${act25} - ${act75}` : "Test Optional")}</span>
+                    </div>
+                    <div className="flex justify-between items-center text-sm">
+                      <span className="text-slate-500">Common App</span>
+                      <span className="font-black text-emerald-600">Accepted</span>
+                    </div>
+                  </div>
+                  <button onClick={() => setActiveTab("requirements")} className="mt-4 text-xs font-black text-primary-700 hover:underline">View details →</button>
                 </div>
-                <div className="rounded-card border border-[#E5E7EB] bg-white p-4 shadow-soft">
-                  <p className="text-xs font-semibold text-[#6B7280] uppercase tracking-wider">Enrollment</p>
-                  <p className="mt-1 text-xl font-bold text-[#111827]">
-                    {size != null ? (size >= 1000 ? `${(size / 1000).toFixed(0)}k+` : size.toLocaleString()) : shortNote(enrich?.enrollmentNote) ?? "—"}
+
+                <div className="rounded-3xl border border-violet-200 bg-violet-50/30 p-6 shadow-md">
+                  <div className="flex items-center gap-2 mb-4">
+                    <FileText className="size-5 text-violet-600" />
+                    <h3 className="font-bold text-slate-900">Application Essays</h3>
+                  </div>
+                  <p className="text-xs leading-relaxed text-slate-600 mb-4">
+                    {college.name} requires a personal statement plus school-specific supplemental essays.
                   </p>
-                  <p className="text-xs text-[#6B7280] mt-0.5">Students on campus</p>
+                  <div className="space-y-2">
+                    <div className="flex items-center gap-2 text-xs font-bold text-slate-700 bg-white/60 p-2 rounded-xl">
+                      <div className="size-1.5 rounded-full bg-violet-400" />
+                      Main Personal Statement
+                    </div>
+                    <div className="flex items-center gap-2 text-xs font-bold text-slate-700 bg-white/60 p-2 rounded-xl">
+                      <div className="size-1.5 rounded-full bg-violet-400" />
+                      Supplemental Prompts
+                    </div>
+                  </div>
+                  <button onClick={() => setActiveTab("essays")} className="mt-4 text-xs font-black text-violet-700 hover:underline">Prepare essays →</button>
                 </div>
               </div>
             </div>
 
-            <div className="rounded-card border border-[#BFDBFE] bg-[#EFF6FF] p-6 shadow-soft">
-              <h2 className="font-semibold text-[#2563EB] flex items-center gap-2">
-                <svg width="18" height="18" viewBox="0 0 24 24" fill="currentColor" aria-hidden><path d="M12 2l3.09 6.26L22 9.27l-5 4.87 1.18 6.88L12 17.77l-6.18 3.25L7 14.14 2 9.27l6.91-1.01L12 2z"/></svg>
-                Why this college is a good fit
-                {whyFitLoading && <span className="text-xs font-normal text-[#6B7280]">(generating…)</span>}
-              </h2>
-              <p className="mt-2 text-sm text-[#374151] leading-relaxed">{whyFit}</p>
-            </div>
-          </div>
-
-          {/* Right column */}
           <div className="space-y-6">
             <div>
-              <h2 className="text-sm font-semibold text-[#374151] uppercase tracking-wider mb-4">Financial Snapshot</h2>
-              <div className="rounded-card border border-[#E5E7EB] bg-white p-4 shadow-soft space-y-3">
+              <p className="text-[11px] font-bold uppercase tracking-[0.2em] text-slate-500">Costs</p>
+              <h2 className="mt-1 text-lg font-semibold text-slate-900">Financial snapshot</h2>
+              <div className="mt-3 space-y-4 rounded-3xl border border-slate-200/90 bg-white/95 p-5 shadow-md">
                 <div>
-                  <p className="text-xs text-[#6B7280]">Average Tuition</p>
-                  <p className="font-bold text-[#111827]">{tuition != null ? formatCurrency(tuition) : shortNote(enrich?.tuitionNote) ?? "—"}</p>
+                  <p className="text-xs font-medium text-slate-500">Average tuition</p>
+                  <p className="text-lg font-bold text-slate-900">
+                    {tuition != null ? formatCurrency(tuition) : shortNote(enrich?.tuitionNote) ?? "—"}
+                  </p>
                 </div>
                 <div>
-                  <p className="text-xs text-[#6B7280]">Room & Board</p>
-                  <p className="font-bold text-[#111827]">{roomboard != null ? formatCurrency(roomboard) : shortNote(enrich?.roomboardNote) ?? "—"}</p>
+                  <p className="text-xs font-medium text-slate-500">Average annual cost</p>
+                  <p className="text-lg font-bold text-slate-900">{avgNetPrice != null ? formatCurrency(avgNetPrice) : "—"}</p>
+                </div>
+                <div>
+                  <p className="text-xs font-medium text-slate-500">Room &amp; board</p>
+                  <p className="text-lg font-bold text-slate-900">
+                    {roomboard != null ? formatCurrency(roomboard) : shortNote(enrich?.roomboardNote) ?? "—"}
+                  </p>
+                </div>
+                <div>
+                  <p className="text-xs font-medium text-slate-500">Typical monthly loan payment</p>
+                  <p className="text-lg font-bold text-slate-900">{monthlyLoan != null ? formatCurrency(monthlyLoan) : "—"}</p>
+                </div>
+                <div>
+                  <p className="text-xs font-medium text-slate-500">Median earnings (10 years)</p>
+                  <p className="text-lg font-bold text-slate-900">{medianEarnings != null ? formatCurrency(medianEarnings) : "—"}</p>
                 </div>
                 <a
                   href={scorecardUrl}
                   target="_blank"
                   rel="noopener noreferrer"
-                  className="mt-1 inline-block text-xs text-text-muted hover:underline"
+                  className="inline-block text-xs font-semibold text-primary-700 hover:underline"
                 >
-                  View this school on College Scorecard
+                  View on College Scorecard →
                 </a>
               </div>
             </div>
 
             <div>
-              <h2 className="text-sm font-semibold text-[#374151] uppercase tracking-wider mb-4">Location</h2>
-              <div className="rounded-card border border-[#E5E7EB] bg-white overflow-hidden shadow-soft">
+              <p className="text-[11px] font-bold uppercase tracking-[0.2em] text-slate-500">Net price by family income</p>
+              <h2 className="mt-1 text-lg font-semibold text-slate-900">By family income</h2>
+              <div className="mt-3 overflow-hidden rounded-3xl border border-slate-200/90 bg-white/95 p-4 shadow-md">
+                <dl className="grid grid-cols-2 gap-3 text-sm">
+                  <div className="rounded-xl bg-slate-50 p-3">
+                    <dt className="text-xs text-slate-500">$0–$30,000</dt>
+                    <dd className="font-semibold text-slate-900">{familyIncomeCosts?.["0-30000"] != null ? formatCurrency(familyIncomeCosts["0-30000"]) : "—"}</dd>
+                  </div>
+                  <div className="rounded-xl bg-slate-50 p-3">
+                    <dt className="text-xs text-slate-500">$30,001–$48,000</dt>
+                    <dd className="font-semibold text-slate-900">{familyIncomeCosts?.["30001-48000"] != null ? formatCurrency(familyIncomeCosts["30001-48000"]) : "—"}</dd>
+                  </div>
+                  <div className="rounded-xl bg-slate-50 p-3">
+                    <dt className="text-xs text-slate-500">$48,001–$75,000</dt>
+                    <dd className="font-semibold text-slate-900">{familyIncomeCosts?.["48001-75000"] != null ? formatCurrency(familyIncomeCosts["48001-75000"]) : "—"}</dd>
+                  </div>
+                  <div className="rounded-xl bg-slate-50 p-3">
+                    <dt className="text-xs text-slate-500">$75,001–$110,000</dt>
+                    <dd className="font-semibold text-slate-900">{familyIncomeCosts?.["75001-110000"] != null ? formatCurrency(familyIncomeCosts["75001-110000"]) : "—"}</dd>
+                  </div>
+                  <div className="col-span-2 rounded-xl bg-slate-50 p-3">
+                    <dt className="text-xs text-slate-500">$110,001+</dt>
+                    <dd className="font-semibold text-slate-900">{familyIncomeCosts?.["110001-plus"] != null ? formatCurrency(familyIncomeCosts["110001-plus"]) : "—"}</dd>
+                  </div>
+                </dl>
+              </div>
+            </div>
+
+            <div>
+              <p className="text-[11px] font-bold uppercase tracking-[0.2em] text-slate-500">Map</p>
+              <h2 className="mt-1 text-lg font-semibold text-slate-900">Location</h2>
+              <div className="mt-3 overflow-hidden rounded-3xl border border-slate-200/90 bg-white shadow-md">
                 <iframe
                   title={`Map of ${college.name}`}
                   src={mapEmbedUrl}
@@ -483,10 +641,17 @@ export function CollegeDetail({ collegeId, basePath = "/colleges" }: { collegeId
                   allowFullScreen
                   loading="lazy"
                   referrerPolicy="no-referrer-when-downgrade"
-                  className="w-full block"
+                  className="block w-full"
                 />
-                <p className="p-3 text-sm font-medium text-[#111827]">{locationStr || college.name || "—"}</p>
-                <a href={mapUrl} target="_blank" rel="noopener noreferrer" className="px-3 pb-3 text-sm text-[#2563EB] hover:underline block">
+                <p className="border-t border-slate-100 px-4 py-3 text-sm font-semibold text-slate-800">
+                  {locationStr || college.name || "—"}
+                </p>
+                <a
+                  href={mapUrl}
+                  target="_blank"
+                  rel="noopener noreferrer"
+                  className="block px-4 pb-4 text-sm font-bold text-primary-700 hover:underline"
+                >
                   Open in Google Maps →
                 </a>
               </div>
@@ -504,40 +669,70 @@ export function CollegeDetail({ collegeId, basePath = "/colleges" }: { collegeId
             exit={{ opacity: 0, y: -8 }}
             transition={{ duration: 0.2 }}
           >
-            <AppCard className="p-6 border-l-4 border-l-primary-500 shadow-soft">
-            <h2 className="font-semibold text-text-primary mb-4">Admission requirements</h2>
-            <p className="text-sm text-text-secondary mb-4">
-              Requirements vary by program. Below is a summary of typical criteria; always confirm on the official admissions site.
-            </p>
-            <dl className="grid gap-4 sm:grid-cols-2">
-              <div>
-                <dt className="text-xs font-medium text-text-muted uppercase tracking-wider">Acceptance rate</dt>
-                <dd className="mt-1 text-text-primary font-medium">{rate != null ? `${(rate * 100).toFixed(1)}%` : shortNote(enrich?.acceptanceNote) ?? "—"}</dd>
+            <div className="rounded-3xl border border-slate-200/90 bg-white/95 p-6 shadow-onboarding-card sm:p-8">
+              <div className="mb-6 h-1 w-16 rounded-full bg-gradient-to-r from-primary-600 to-amber-400" aria-hidden />
+              <h2 className="text-xl font-semibold text-slate-900">Admission requirements</h2>
+              <p className="mt-2 text-sm leading-relaxed text-slate-600">
+                Requirements vary by program. Below is a summary of typical criteria; always confirm on the official admissions site.
+              </p>
+              <dl className="mt-6 grid gap-4 sm:grid-cols-2">
+                <div className="rounded-2xl border border-slate-100 bg-slate-50/80 p-4">
+                  <dt className="text-[11px] font-bold uppercase tracking-wider text-slate-500">Acceptance rate</dt>
+                  <dd className="mt-1 font-semibold text-slate-900">
+                    {acceptanceRate != null ? `${(acceptanceRate * 100).toFixed(1)}%` : shortNote(enrich?.acceptanceNote) ?? "—"}
+                  </dd>
+                </div>
+                <div className="rounded-2xl border border-slate-100 bg-slate-50/80 p-4">
+                  <dt className="text-[11px] font-bold uppercase tracking-wider text-slate-500">SAT (mid 50%)</dt>
+                  <dd className="mt-1 font-semibold text-slate-900">
+                    {satTotal != null && satTotal > 0 ? satTotal : shortNote(enrich?.satNote) ?? "—"}
+                  </dd>
+                </div>
+                <div className="rounded-2xl border border-slate-100 bg-slate-50/80 p-4">
+                  <dt className="text-[11px] font-bold uppercase tracking-wider text-slate-500">ACT (mid 50%)</dt>
+                  <dd className="mt-1 font-semibold text-slate-900">{act != null ? act : shortNote(enrich?.actNote) ?? "—"}</dd>
+                </div>
+                <div className="rounded-2xl border border-slate-100 bg-slate-50/80 p-4">
+                  <dt className="text-[11px] font-bold uppercase tracking-wider text-slate-500">Enrollment</dt>
+                  <dd className="mt-1 font-semibold text-slate-900">
+                    {size != null ? size.toLocaleString() : shortNote(enrich?.enrollmentNote) ?? "—"}
+                  </dd>
+                </div>
+              </dl>
+              <div className="mt-4 grid gap-4 sm:grid-cols-2">
+                <div className="rounded-2xl border border-slate-100 bg-slate-50/80 p-4 text-sm">
+                  <p className="text-[11px] font-bold uppercase tracking-wider text-slate-500">SAT ranges</p>
+                  <p className="mt-2 text-slate-900">
+                    Reading/Writing: {sat25?.critical_reading ?? "—"} - {sat75?.critical_reading ?? "—"}
+                  </p>
+                  <p className="text-slate-900">Math: {sat25?.math ?? "—"} - {sat75?.math ?? "—"}</p>
+                </div>
+                <div className="rounded-2xl border border-slate-100 bg-slate-50/80 p-4 text-sm">
+                  <p className="text-[11px] font-bold uppercase tracking-wider text-slate-500">ACT range</p>
+                  <p className="mt-2 text-slate-900">Composite: {act25 ?? "—"} - {act75 ?? "—"}</p>
+                </div>
               </div>
-              <div>
-                <dt className="text-xs font-medium text-text-muted uppercase tracking-wider">SAT (mid 50%)</dt>
-                <dd className="mt-1 text-text-primary font-medium">{satTotal != null && satTotal > 0 ? satTotal : shortNote(enrich?.satNote) ?? "—"}</dd>
-              </div>
-              <div>
-                <dt className="text-xs font-medium text-text-muted uppercase tracking-wider">ACT (mid 50%)</dt>
-                <dd className="mt-1 text-text-primary font-medium">{act != null ? act : shortNote(enrich?.actNote) ?? "—"}</dd>
-              </div>
-              <div>
-                <dt className="text-xs font-medium text-text-muted uppercase tracking-wider">Enrollment</dt>
-                <dd className="mt-1 text-text-primary font-medium">{size != null ? size.toLocaleString() : shortNote(enrich?.enrollmentNote) ?? "—"}</dd>
-              </div>
-            </dl>
-            <ul className="mt-6 space-y-2 text-sm text-text-secondary">
-              <li className="flex items-start gap-2"><span className="text-primary-500 mt-0.5">•</span> High school transcript and GPA</li>
-              <li className="flex items-start gap-2"><span className="text-primary-500 mt-0.5">•</span> Standardized test scores (SAT/ACT) — check if test-optional</li>
-              <li className="flex items-start gap-2"><span className="text-primary-500 mt-0.5">•</span> Letters of recommendation (typically 1–2)</li>
-              <li className="flex items-start gap-2"><span className="text-primary-500 mt-0.5">•</span> Personal essay and/or supplemental essays</li>
-              <li className="flex items-start gap-2"><span className="text-primary-500 mt-0.5">•</span> Application fee or fee waiver</li>
-            </ul>
-            <p className="mt-6 text-xs text-text-muted">
-              This summary is based on publicly available data; always confirm exact criteria with the admissions office.
-            </p>
-          </AppCard>
+              <ul className="mt-6 space-y-2.5 text-sm text-slate-600">
+                <li className="flex items-start gap-2">
+                  <span className="mt-0.5 text-emerald-600">✓</span> High school transcript and GPA
+                </li>
+                <li className="flex items-start gap-2">
+                  <span className="mt-0.5 text-emerald-600">✓</span> Standardized test scores (SAT/ACT) — check if test-optional
+                </li>
+                <li className="flex items-start gap-2">
+                  <span className="mt-0.5 text-emerald-600">✓</span> Letters of recommendation (typically 1–2)
+                </li>
+                <li className="flex items-start gap-2">
+                  <span className="mt-0.5 text-emerald-600">✓</span> Personal essay and/or supplemental essays
+                </li>
+                <li className="flex items-start gap-2">
+                  <span className="mt-0.5 text-emerald-600">✓</span> Application fee or fee waiver
+                </li>
+              </ul>
+              <p className="mt-6 text-xs text-slate-500">
+                This summary is based on publicly available data; always confirm exact criteria with the admissions office.
+              </p>
+            </div>
           </motion.div>
         )}
 
@@ -550,35 +745,42 @@ export function CollegeDetail({ collegeId, basePath = "/colleges" }: { collegeId
             exit={{ opacity: 0, y: -8 }}
             transition={{ duration: 0.2 }}
           >
-            <AppCard className="p-6 border-l-4 border-l-primary-500 shadow-soft">
-            <h2 className="font-semibold text-text-primary mb-2">Application essays</h2>
-            <p className="text-sm text-text-secondary mb-4">
-              Most schools require a personal statement (e.g. Common App or Coalition essay) plus one or more school-specific supplements.
-            </p>
-            <div className="space-y-4">
-              <div>
-                <h3 className="text-sm font-medium text-text-primary">Common App / main essay</h3>
-                <p className="text-sm text-text-muted mt-1">Typically 250–650 words. Prompts are on the Common App or Coalition site.</p>
+            <div className="rounded-3xl border border-violet-200/80 bg-gradient-to-br from-violet-50/50 via-white to-white p-6 shadow-onboarding-card sm:p-8">
+              <div className="mb-6 flex items-center gap-2">
+                <span className="flex h-10 w-10 items-center justify-center rounded-xl bg-violet-100 text-violet-700">
+                  <FileText className="h-5 w-5" aria-hidden />
+                </span>
+                <h2 className="text-xl font-semibold text-slate-900">Application essays</h2>
               </div>
-              <div>
-                <h3 className="text-sm font-medium text-text-primary">Supplemental essays</h3>
-                <p className="text-sm text-text-muted mt-1">
-                  {college.name} may require additional short-answer or essay questions. Word limits and prompts are updated each cycle on the admissions website.
-                </p>
+              <p className="text-sm leading-relaxed text-slate-600">
+                Most schools require a personal statement (e.g. Common App or Coalition essay) plus one or more school-specific supplements.
+              </p>
+              <div className="mt-6 space-y-5">
+                <div className="rounded-2xl border border-slate-100 bg-white/90 p-4 shadow-sm">
+                  <h3 className="font-semibold text-slate-900">Common App / main essay</h3>
+                  <p className="mt-1 text-sm text-slate-600">
+                    Typically 250–650 words. Prompts are on the Common App or Coalition site.
+                  </p>
+                </div>
+                <div className="rounded-2xl border border-slate-100 bg-white/90 p-4 shadow-sm">
+                  <h3 className="font-semibold text-slate-900">Supplemental essays</h3>
+                  <p className="mt-1 text-sm text-slate-600">
+                    {college.name} may require additional short-answer or essay questions. Word limits and prompts are updated each cycle on the admissions website.
+                  </p>
+                </div>
+                <div className="rounded-2xl border border-amber-200/80 bg-amber-50/60 p-4">
+                  <h3 className="font-semibold text-amber-950">Tips</h3>
+                  <ul className="mt-2 space-y-1.5 text-sm text-amber-950/80">
+                    <li>• Start early and allow time for revisions</li>
+                    <li>• Answer the prompt directly and be specific</li>
+                    <li>• Proofread and get feedback from a counselor or teacher</li>
+                  </ul>
+                </div>
               </div>
-              <div>
-                <h3 className="text-sm font-medium text-text-primary">Tips</h3>
-                <ul className="text-sm text-text-muted mt-1 space-y-1 list-disc list-inside">
-                  <li>Start early and allow time for revisions</li>
-                  <li>Answer the prompt directly and be specific</li>
-                  <li>Proofread and get feedback from a counselor or teacher</li>
-                </ul>
-              </div>
+              <p className="mt-6 text-xs text-slate-500">
+                Essay prompts and word counts can change each year; double‑check the latest instructions in your application portal.
+              </p>
             </div>
-            <p className="mt-6 text-xs text-text-muted">
-              Essay prompts and word counts can change each year; double‑check the latest instructions in your application portal.
-            </p>
-          </AppCard>
           </motion.div>
         )}
       </AnimatePresence>

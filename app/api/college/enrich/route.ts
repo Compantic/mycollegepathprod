@@ -5,6 +5,8 @@ import { getCollegeFromFirestoreCache } from "@/lib/scorecard/firestoreCache";
 import { chatCompletion } from "@/lib/ai/openai";
 import { getApiErrorStatus } from "@/lib/errors/api";
 import { logApiError } from "@/lib/logging/api";
+import { getSessionUserFromRequest } from "@/lib/firebase/serverAuth";
+import { enforceUserRateLimit } from "@/lib/rateLimit/server";
 
 export type EnrichResponse = {
   acceptanceNote?: string;
@@ -70,6 +72,17 @@ export async function POST(req: NextRequest) {
   let id: number = NaN;
   let college: College | null = null;
   try {
+    const user = await getSessionUserFromRequest(req);
+    if (!user) {
+      return NextResponse.json({ error: "Unauthorized" }, { status: 401 });
+    }
+    await enforceUserRateLimit({
+      userId: user.uid,
+      bucket: "college_enrich",
+      windowMs: 60_000,
+      maxRequests: 20,
+    });
+
     const body = await req.json().catch(() => ({}));
     const collegeId = body.collegeId ?? req.nextUrl.searchParams.get("collegeId");
     id = typeof collegeId === "string" ? parseInt(collegeId, 10) : collegeId;

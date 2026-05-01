@@ -1,6 +1,5 @@
 /**
  * Compute profile completion % from onboarding answers (for display only).
- * Does not change any data or schema.
  */
 import type { OnboardingSnapshot } from "@/lib/onboarding/types";
 
@@ -12,6 +11,7 @@ const FIELDS_TO_CHECK: (keyof OnboardingSnapshot)[] = [
   "gradeLevel",
   "city",
   "state",
+  "country",
   "gpa",
   "satScore",
   "actScore",
@@ -19,7 +19,7 @@ const FIELDS_TO_CHECK: (keyof OnboardingSnapshot)[] = [
   "careerConfidence",
   "areasOfInterest",
   "targetDegree",
-  "workInclination",
+  "preferenceCoreType",
   "intellectualStructuredVsOpen",
   "activityTypes",
   "awardsSchool",
@@ -31,7 +31,9 @@ const FIELDS_TO_CHECK: (keyof OnboardingSnapshot)[] = [
   "applicationStrategy",
   "lifeSatisfaction",
   "naturalSkills",
-  "favoriteClass",
+  "favoriteSubjectsRank",
+  "budgetPerYear",
+  "studySkillsConfidence",
 ];
 
 export function computeProfileStrength(answers: OnboardingSnapshot | null | undefined): number {

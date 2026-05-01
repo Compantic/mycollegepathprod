@@ -6,9 +6,9 @@ import { saveOnboardingDraft, getOnboardingDraft, persistOnboardingToFirestore }
 import { auth } from "@/lib/firebase/client";
 import { STEP_CONFIG } from "@/lib/onboarding/stepConfig";
 import { OnboardingStepCard } from "@/components/onboarding/OnboardingStepCard";
-import { Brain } from "lucide-react";
+import { Button } from "@/components/ui/button";
 import type {
-  WorkInclinationItem,
+  AcademicSuccessCrucial,
   StructuredVsOpen,
   LectureVsDiscussion,
   ResearchVsApplication,
@@ -17,10 +17,11 @@ import type {
   IntrovertedVsSocial,
   LargeVsTight,
   IndependentVsGuided,
+  PreferenceCoreType,
 } from "@/lib/onboarding/schema";
-import { Button } from "@/components/ui/button";
+import { FAVORITE_SUBJECT_OPTIONS, PREFERENCE_CORE_OPTIONS } from "@/lib/onboarding/schema";
+import { Brain } from "lucide-react";
 
-const WORK_ITEMS: WorkInclinationItem[] = ["Ideas", "Data", "People", "Things"];
 const STRUCTURED_OPTS: { value: StructuredVsOpen; label: string }[] = [
   { value: "Structured", label: "Structured" },
   { value: "Balanced", label: "Balanced" },
@@ -49,7 +50,7 @@ const COMPETITIVE_OPTS: { value: CompetitiveVsCollaborative; label: string }[] =
 const INTROVERTED_OPTS: { value: IntrovertedVsSocial; label: string }[] = [
   { value: "Introverted", label: "Introverted" },
   { value: "Balanced", label: "Balanced" },
-  { value: "Socially energized", label: "Socially energized" },
+  { value: "Social", label: "Social" },
 ];
 const LARGE_OPTS: { value: LargeVsTight; label: string }[] = [
   { value: "Large networks", label: "Large networks" },
@@ -62,30 +63,18 @@ const INDEPENDENT_OPTS: { value: IndependentVsGuided; label: string }[] = [
   { value: "Guided", label: "Guided" },
 ];
 
-function buildRankFromSelects(first: string, second: string, third: string, fourth: string): WorkInclinationItem[] {
-  const arr = [first, second, third, fourth].filter(Boolean) as WorkInclinationItem[];
-  const seen = new Set<string>();
-  const out: WorkInclinationItem[] = [];
-  for (const x of arr) {
-    if (!seen.has(x)) {
-      seen.add(x);
-      out.push(x);
-    }
-  }
-  for (const item of WORK_ITEMS) {
-    if (!seen.has(item)) out.push(item);
-  }
-  return out.slice(0, 4);
-}
-
 function OnboardingStep2Content() {
   const router = useRouter();
   const searchParams = useSearchParams();
   const fromProfile = searchParams.get("from") === "profile";
-  const [rankFirst, setRankFirst] = useState<string>("");
-  const [rankSecond, setRankSecond] = useState<string>("");
-  const [rankThird, setRankThird] = useState<string>("");
-  const [rankFourth, setRankFourth] = useState<string>("");
+  const [lifeSatisfaction, setLifeSatisfaction] = useState<number | "">("");
+  const [addingToLife, setAddingToLife] = useState("");
+  const [eliminatingFromLife, setEliminatingFromLife] = useState("");
+  const [academicSuccessCrucial, setAcademicSuccessCrucial] = useState<AcademicSuccessCrucial | "">("");
+  const [naturalSkills, setNaturalSkills] = useState("");
+  const [fav1, setFav1] = useState("");
+  const [fav2, setFav2] = useState("");
+  const [fav3, setFav3] = useState("");
   const [intellectualStructuredVsOpen, setIntellectualStructuredVsOpen] = useState<StructuredVsOpen | "">("");
   const [intellectualLectureVsDiscussion, setIntellectualLectureVsDiscussion] = useState<LectureVsDiscussion | "">("");
   const [intellectualResearchVsApplication, setIntellectualResearchVsApplication] = useState<ResearchVsApplication | "">("");
@@ -94,35 +83,59 @@ function OnboardingStep2Content() {
   const [socialIntrovertedVsSocial, setSocialIntrovertedVsSocial] = useState<IntrovertedVsSocial | "">("");
   const [socialLargeVsTight, setSocialLargeVsTight] = useState<LargeVsTight | "">("");
   const [socialIndependentVsGuided, setSocialIndependentVsGuided] = useState<IndependentVsGuided | "">("");
+  const [preferenceCoreType, setPreferenceCoreType] = useState<PreferenceCoreType | "">("");
   const [errors, setErrors] = useState<Record<string, string>>({});
 
   useEffect(() => {
     const d = getOnboardingDraft();
-    const r = d.workInclination ?? [];
-    if (r[0]) setRankFirst(r[0]);
-    if (r[1]) setRankSecond(r[1]);
-    if (r[2]) setRankThird(r[2]);
-    if (r[3]) setRankFourth(r[3]);
+    const rank = d.favoriteSubjectsRank ?? [];
+    if (d.lifeSatisfaction != null) setLifeSatisfaction(d.lifeSatisfaction);
+    if (d.addingToLife) setAddingToLife(d.addingToLife);
+    if (d.eliminatingFromLife) setEliminatingFromLife(d.eliminatingFromLife);
+    if (d.academicSuccessCrucial) setAcademicSuccessCrucial(d.academicSuccessCrucial);
+    if (d.naturalSkills) setNaturalSkills(d.naturalSkills);
+    if (rank[0]) setFav1(rank[0]);
+    if (rank[1]) setFav2(rank[1]);
+    if (rank[2]) setFav3(rank[2]);
     if (d.intellectualStructuredVsOpen) setIntellectualStructuredVsOpen(d.intellectualStructuredVsOpen);
     if (d.intellectualLectureVsDiscussion) setIntellectualLectureVsDiscussion(d.intellectualLectureVsDiscussion);
     if (d.intellectualResearchVsApplication) setIntellectualResearchVsApplication(d.intellectualResearchVsApplication);
     if (d.intellectualTheoreticalVsHandsOn) setIntellectualTheoreticalVsHandsOn(d.intellectualTheoreticalVsHandsOn);
     if (d.socialCompetitiveVsCollaborative) setSocialCompetitiveVsCollaborative(d.socialCompetitiveVsCollaborative);
-    if (d.socialIntrovertedVsSocial) setSocialIntrovertedVsSocial(d.socialIntrovertedVsSocial);
+    if (d.socialIntrovertedVsSocial) {
+      const s = d.socialIntrovertedVsSocial as string;
+      setSocialIntrovertedVsSocial(s === "Socially energized" ? "Social" : (d.socialIntrovertedVsSocial as IntrovertedVsSocial));
+    }
     if (d.socialLargeVsTight) setSocialLargeVsTight(d.socialLargeVsTight);
     if (d.socialIndependentVsGuided) setSocialIndependentVsGuided(d.socialIndependentVsGuided);
+    if (d.preferenceCoreType) setPreferenceCoreType(d.preferenceCoreType);
+    else if (d.workInclination?.[0]) setPreferenceCoreType(d.workInclination[0]);
   }, []);
 
   async function handleSubmit(e: React.FormEvent) {
     e.preventDefault();
     const err: Record<string, string> = {};
-    const ranked = buildRankFromSelects(rankFirst, rankSecond, rankThird, rankFourth);
-    if (ranked.length !== 4) err.workInclination = "Please rank all four (Ideas, Data, People, Things) with no duplicates.";
+    if (lifeSatisfaction === "" || lifeSatisfaction === undefined) err.lifeSatisfaction = "Please rate your life satisfaction.";
+    if (!academicSuccessCrucial) err.academicSuccessCrucial = "Please select an option.";
+    if (!preferenceCoreType) err.preferenceCoreType = "Please choose your preference core type.";
     setErrors(err);
     if (Object.keys(err).length) return;
 
+    const sat = Number(lifeSatisfaction);
+    if (sat < 1 || sat > 10) {
+      setErrors((prev) => ({ ...prev, lifeSatisfaction: "Choose a value between 1 and 10." }));
+      return;
+    }
+
+    const rank = [fav1, fav2, fav3].filter((x, i, a) => x && a.indexOf(x) === i);
+
     saveOnboardingDraft({
-      workInclination: ranked,
+      lifeSatisfaction: sat,
+      addingToLife: addingToLife.trim() || undefined,
+      eliminatingFromLife: eliminatingFromLife.trim() || undefined,
+      academicSuccessCrucial: academicSuccessCrucial as AcademicSuccessCrucial,
+      naturalSkills: naturalSkills.trim() || undefined,
+      favoriteSubjectsRank: rank.length ? rank : undefined,
       intellectualStructuredVsOpen: intellectualStructuredVsOpen || undefined,
       intellectualLectureVsDiscussion: intellectualLectureVsDiscussion || undefined,
       intellectualResearchVsApplication: intellectualResearchVsApplication || undefined,
@@ -131,6 +144,8 @@ function OnboardingStep2Content() {
       socialIntrovertedVsSocial: socialIntrovertedVsSocial || undefined,
       socialLargeVsTight: socialLargeVsTight || undefined,
       socialIndependentVsGuided: socialIndependentVsGuided || undefined,
+      preferenceCoreType: preferenceCoreType as PreferenceCoreType,
+      workInclination: [preferenceCoreType as PreferenceCoreType],
     });
     if (fromProfile && auth.currentUser) {
       await persistOnboardingToFirestore(auth.currentUser.uid, getOnboardingDraft());
@@ -140,11 +155,20 @@ function OnboardingStep2Content() {
     router.push("/onboarding/step-3");
   }
 
-  const remainingForSecond = WORK_ITEMS.filter((x) => x !== rankFirst);
-  const remainingForThird = remainingForSecond.filter((x) => x !== rankSecond);
-  const remainingForFourth = remainingForThird.filter((x) => x !== rankThird);
-
+  const satNum = lifeSatisfaction === "" ? 5 : Math.min(10, Math.max(1, Number(lifeSatisfaction)));
   const config = STEP_CONFIG[2];
+
+  const subjectSelect = (value: string, onChange: (v: string) => void, label: string) => (
+    <div>
+      <label className="block text-xs font-medium text-text-muted mb-1">{label}</label>
+      <select value={value} onChange={(e) => onChange(e.target.value)} className="mt-0 w-full rounded-button border border-bg-border bg-bg-main px-3 py-2 text-sm text-text-primary">
+        <option value="">—</option>
+        {FAVORITE_SUBJECT_OPTIONS.map((s) => (
+          <option key={s} value={s}>{s}</option>
+        ))}
+      </select>
+    </div>
+  );
 
   return (
     <OnboardingStepCard
@@ -165,149 +189,149 @@ function OnboardingStep2Content() {
       }
     >
       <form id="onboarding-step2-form" onSubmit={handleSubmit} className="space-y-6">
-          <div>
-            <label className="block text-sm font-medium text-text-primary">
-              Rank in order: Ideas, Data, People, Things (1 = most inclined)
-            </label>
-            <p className="mt-0.5 text-xs text-text-muted">Required. Select your 1st through 4th.</p>
-            <div className="mt-2 grid grid-cols-2 sm:grid-cols-4 gap-3">
-              <div>
-                <span className="text-xs text-text-muted">1st</span>
-                <select
-                  value={rankFirst}
-                  onChange={(e) => setRankFirst(e.target.value)}
-                  className="mt-1 w-full rounded-button border border-bg-border bg-bg-main px-3 py-2 text-sm text-text-primary"
-                >
-                  <option value="">Select</option>
-                  {WORK_ITEMS.map((x) => (
-                    <option key={x} value={x}>{x}</option>
-                  ))}
-                </select>
-              </div>
-              <div>
-                <span className="text-xs text-text-muted">2nd</span>
-                <select
-                  value={rankSecond}
-                  onChange={(e) => setRankSecond(e.target.value)}
-                  className="mt-1 w-full rounded-button border border-bg-border bg-bg-main px-3 py-2 text-sm text-text-primary"
-                >
-                  <option value="">Select</option>
-                  {remainingForSecond.map((x) => (
-                    <option key={x} value={x}>{x}</option>
-                  ))}
-                </select>
-              </div>
-              <div>
-                <span className="text-xs text-text-muted">3rd</span>
-                <select
-                  value={rankThird}
-                  onChange={(e) => setRankThird(e.target.value)}
-                  className="mt-1 w-full rounded-button border border-bg-border bg-bg-main px-3 py-2 text-sm text-text-primary"
-                >
-                  <option value="">Select</option>
-                  {remainingForThird.map((x) => (
-                    <option key={x} value={x}>{x}</option>
-                  ))}
-                </select>
-              </div>
-              <div>
-                <span className="text-xs text-text-muted">4th</span>
-                <select
-                  value={rankFourth}
-                  onChange={(e) => setRankFourth(e.target.value)}
-                  className="mt-1 w-full rounded-button border border-bg-border bg-bg-main px-3 py-2 text-sm text-text-primary"
-                >
-                  <option value="">Select</option>
-                  {remainingForFourth.map((x) => (
-                    <option key={x} value={x}>{x}</option>
-                  ))}
-                </select>
-              </div>
-            </div>
-            {errors.workInclination && <p className="mt-1 text-sm text-status-dangerText">{errors.workInclination}</p>}
+        <div>
+          <div className="flex justify-between items-center mb-1.5">
+            <label htmlFor="life-sat" className="text-sm font-medium text-text-primary">Life satisfaction</label>
+            <span className="text-sm font-semibold text-primary-600 min-w-[2rem] text-right">{lifeSatisfaction === "" ? "—" : satNum}/10</span>
           </div>
+          <p className="text-xs text-text-muted mb-2">1 = low, 10 = high. Required.</p>
+          <input id="life-sat" type="range" min={1} max={10} value={satNum} onChange={(e) => setLifeSatisfaction(parseInt(e.target.value, 10))} className="onboarding-slider" />
+          {errors.lifeSatisfaction && <p className="mt-1.5 text-sm text-status-dangerText">{errors.lifeSatisfaction}</p>}
+        </div>
 
+        <div>
+          <label htmlFor="adding" className="block text-sm font-medium text-text-primary mb-1.5">What would you add to your life?</label>
+          <p className="text-xs text-text-muted mb-2">Optional</p>
+          <textarea id="adding" value={addingToLife} onChange={(e) => setAddingToLife(e.target.value)} rows={3} className="w-full onboarding-input resize-none py-3" placeholder="If you had all the opportunities without limitations…" />
+        </div>
+
+        <div>
+          <label htmlFor="eliminating" className="block text-sm font-medium text-text-primary mb-1.5">What would you remove from your life?</label>
+          <p className="text-xs text-text-muted mb-2">Optional</p>
+          <textarea id="eliminating" value={eliminatingFromLife} onChange={(e) => setEliminatingFromLife(e.target.value)} rows={3} className="w-full onboarding-input resize-none py-3" placeholder="Something that would release the most burden…" />
+        </div>
+
+        <fieldset>
+          <legend className="text-sm font-medium text-text-primary">Is academic success crucial for your happiness and life success?</legend>
+          <p className="mt-0.5 text-xs text-text-muted mb-3">Required</p>
+          <div className="flex flex-wrap gap-2">
+            {(["Yes", "No", "Not sure"] as const).map((opt) => (
+              <label key={opt} className={`onboarding-pill ${academicSuccessCrucial === opt ? "onboarding-pill-selected" : ""}`}>
+                <input type="radio" name="academic" value={opt} checked={academicSuccessCrucial === opt} onChange={() => setAcademicSuccessCrucial(opt)} className="sr-only" />
+                {opt}
+              </label>
+            ))}
+          </div>
+          {errors.academicSuccessCrucial && <p className="mt-1.5 text-sm text-status-dangerText">{errors.academicSuccessCrucial}</p>}
+        </fieldset>
+
+        <div>
+          <label htmlFor="natural" className="block text-sm font-medium text-text-primary mb-1.5">What are you naturally good at?</label>
+          <p className="text-xs text-text-muted mb-2">Optional</p>
+          <textarea id="natural" value={naturalSkills} onChange={(e) => setNaturalSkills(e.target.value)} rows={3} className="w-full onboarding-input resize-none py-3" placeholder="e.g. Problem-solving, writing, teamwork…" />
+        </div>
+
+        <div>
+          <label className="block text-sm font-medium text-text-primary mb-1.5">Favorite subjects (rank top 3)</label>
+          <p className="text-xs text-text-muted mb-2">Optional. Pick 1st, 2nd, 3rd — duplicates are ignored.</p>
+          <div className="grid gap-3 sm:grid-cols-3">
+            {subjectSelect(fav1, setFav1, "1st")}
+            {subjectSelect(fav2, setFav2, "2nd")}
+            {subjectSelect(fav3, setFav3, "3rd")}
+          </div>
+        </div>
+
+        <div className="rounded-xl border border-bg-border bg-secondary-100/20 p-4 space-y-4">
+          <p className="text-sm font-semibold text-text-primary">Block A — Learning style</p>
           <div>
-            <label className="block text-sm font-medium text-text-primary">9a) Structured vs. Open-ended?</label>
-            <p className="mt-0.5 text-xs text-text-muted">Optional</p>
+            <label className="block text-sm font-medium text-text-primary">Structured / Balanced / Open-ended</label>
+            <p className="text-xs text-text-muted">Optional</p>
             <div className="mt-3 grid grid-cols-1 sm:grid-cols-3 gap-3">
               {STRUCTURED_OPTS.map((o) => (
                 <button key={o.value} type="button" onClick={() => setIntellectualStructuredVsOpen(o.value)} className={`onboarding-option-card ${intellectualStructuredVsOpen === o.value ? "onboarding-option-card-selected" : ""}`}>{o.label}</button>
               ))}
             </div>
           </div>
-
           <div>
-            <label className="block text-sm font-medium text-text-primary">9b) Lecture-based vs. Discussion-based?</label>
-            <p className="mt-0.5 text-xs text-text-muted">Optional</p>
+            <label className="block text-sm font-medium text-text-primary">Lecture / Balanced / Discussion</label>
+            <p className="text-xs text-text-muted">Optional</p>
             <div className="mt-3 grid grid-cols-1 sm:grid-cols-3 gap-3">
               {LECTURE_OPTS.map((o) => (
                 <button key={o.value} type="button" onClick={() => setIntellectualLectureVsDiscussion(o.value)} className={`onboarding-option-card ${intellectualLectureVsDiscussion === o.value ? "onboarding-option-card-selected" : ""}`}>{o.label}</button>
               ))}
             </div>
           </div>
-
           <div>
-            <label className="block text-sm font-medium text-text-primary">9c) Research-driven vs. Application-driven?</label>
-            <p className="mt-0.5 text-xs text-text-muted">Optional</p>
+            <label className="block text-sm font-medium text-text-primary">Research / Balanced / Application</label>
+            <p className="text-xs text-text-muted">Optional</p>
             <div className="mt-3 grid grid-cols-1 sm:grid-cols-3 gap-3">
               {RESEARCH_OPTS.map((o) => (
                 <button key={o.value} type="button" onClick={() => setIntellectualResearchVsApplication(o.value)} className={`onboarding-option-card ${intellectualResearchVsApplication === o.value ? "onboarding-option-card-selected" : ""}`}>{o.label}</button>
               ))}
             </div>
           </div>
-
           <div>
-            <label className="block text-sm font-medium text-text-primary">9d) Theoretical vs. Hands-on?</label>
-            <p className="mt-0.5 text-xs text-text-muted">Optional</p>
+            <label className="block text-sm font-medium text-text-primary">Theoretical / Balanced / Hands-on</label>
+            <p className="text-xs text-text-muted">Optional</p>
             <div className="mt-3 grid grid-cols-1 sm:grid-cols-3 gap-3">
               {THEORETICAL_OPTS.map((o) => (
                 <button key={o.value} type="button" onClick={() => setIntellectualTheoreticalVsHandsOn(o.value)} className={`onboarding-option-card ${intellectualTheoreticalVsHandsOn === o.value ? "onboarding-option-card-selected" : ""}`}>{o.label}</button>
               ))}
             </div>
           </div>
+        </div>
 
+        <div className="rounded-xl border border-bg-border bg-secondary-100/20 p-4 space-y-4">
+          <p className="text-sm font-semibold text-text-primary">Block B — Social style</p>
           <div>
-            <label className="block text-sm font-medium text-text-primary">10a) Competitive or Collaborative?</label>
-            <p className="mt-0.5 text-xs text-text-muted">Optional</p>
+            <label className="block text-sm font-medium text-text-primary">Competitive / Balanced / Collaborative</label>
+            <p className="text-xs text-text-muted">Optional</p>
             <div className="mt-3 grid grid-cols-1 sm:grid-cols-3 gap-3">
               {COMPETITIVE_OPTS.map((o) => (
                 <button key={o.value} type="button" onClick={() => setSocialCompetitiveVsCollaborative(o.value)} className={`onboarding-option-card ${socialCompetitiveVsCollaborative === o.value ? "onboarding-option-card-selected" : ""}`}>{o.label}</button>
               ))}
             </div>
           </div>
-
           <div>
-            <label className="block text-sm font-medium text-text-primary">10b) Introverted or Socially energized?</label>
-            <p className="mt-0.5 text-xs text-text-muted">Optional</p>
+            <label className="block text-sm font-medium text-text-primary">Introverted / Balanced / Social</label>
+            <p className="text-xs text-text-muted">Optional</p>
             <div className="mt-3 grid grid-cols-1 sm:grid-cols-3 gap-3">
               {INTROVERTED_OPTS.map((o) => (
                 <button key={o.value} type="button" onClick={() => setSocialIntrovertedVsSocial(o.value)} className={`onboarding-option-card ${socialIntrovertedVsSocial === o.value ? "onboarding-option-card-selected" : ""}`}>{o.label}</button>
               ))}
             </div>
           </div>
-
           <div>
-            <label className="block text-sm font-medium text-text-primary">10c) Large networks or Tight circles?</label>
-            <p className="mt-0.5 text-xs text-text-muted">Optional</p>
+            <label className="block text-sm font-medium text-text-primary">Large networks / Balanced / Tight circles</label>
+            <p className="text-xs text-text-muted">Optional</p>
             <div className="mt-3 grid grid-cols-1 sm:grid-cols-3 gap-3">
               {LARGE_OPTS.map((o) => (
                 <button key={o.value} type="button" onClick={() => setSocialLargeVsTight(o.value)} className={`onboarding-option-card ${socialLargeVsTight === o.value ? "onboarding-option-card-selected" : ""}`}>{o.label}</button>
               ))}
             </div>
           </div>
-
           <div>
-            <label className="block text-sm font-medium text-text-primary">10d) Independent or Guided?</label>
-            <p className="mt-0.5 text-xs text-text-muted">Optional</p>
+            <label className="block text-sm font-medium text-text-primary">Independent / Balanced / Guided</label>
+            <p className="text-xs text-text-muted">Optional</p>
             <div className="mt-3 grid grid-cols-1 sm:grid-cols-3 gap-3">
               {INDEPENDENT_OPTS.map((o) => (
                 <button key={o.value} type="button" onClick={() => setSocialIndependentVsGuided(o.value)} className={`onboarding-option-card ${socialIndependentVsGuided === o.value ? "onboarding-option-card-selected" : ""}`}>{o.label}</button>
               ))}
             </div>
           </div>
+        </div>
 
-        </form>
+        <div>
+          <label className="block text-sm font-medium text-text-primary mb-2">Preference core type</label>
+          <p className="text-xs text-text-muted mb-3">Which best describes what you gravitate toward? Required.</p>
+          <div className="grid grid-cols-2 sm:grid-cols-4 gap-3">
+            {PREFERENCE_CORE_OPTIONS.map((opt) => (
+              <button key={opt} type="button" onClick={() => setPreferenceCoreType(opt)} className={`onboarding-option-card ${preferenceCoreType === opt ? "onboarding-option-card-selected" : ""}`}>{opt}</button>
+            ))}
+          </div>
+          {errors.preferenceCoreType && <p className="mt-1.5 text-sm text-status-dangerText">{errors.preferenceCoreType}</p>}
+        </div>
+      </form>
     </OnboardingStepCard>
   );
 }

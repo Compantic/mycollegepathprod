@@ -72,6 +72,14 @@ node_modules/
 
 # Firebase service account key (use env vars in production)
 serviceAccountKey.json
+mycollegepath-660df-firebase-adminsdk-fbsvc-2cd7856a32.json
+firebase-service-account.base64
+
+# Local debug / curl captures
+staging.html
+staging_*.html
+
+.DS_Store
 
 # dataconnect generated files
 .dataconnect
