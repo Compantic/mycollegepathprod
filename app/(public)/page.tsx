@@ -1,5 +1,9 @@
 import Link from "next/link";
 import { getPublicMarketingMetrics, toPublicSignals } from "@/lib/marketing/publicMetrics";
+
+/** Prerender at build so the response is a full HTML document (DOCTYPE + html/body). Streaming SSR on this route was emitting a fragment-only body, which breaks Safari. */
+export const dynamic = "force-static";
+export const revalidate = 300;
 import {
   ArrowRight,
   Shield,
