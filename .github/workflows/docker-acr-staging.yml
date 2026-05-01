@@ -86,8 +86,8 @@ jobs:
                   raise SystemExit(f"{label}: Missing <!DOCTYPE html> — broken Next streaming shell.")
               if b'rel="stylesheet"' not in data and b"rel='stylesheet'" not in data:
                   raise SystemExit(f"{label}: No <link rel=stylesheet> — page will look unstyled (no Tailwind CSS).")
-              if b"/_next/static/css/" not in data:
-                  raise SystemExit(f"{label}: No /_next/static/css/ href — compiled CSS not linked.")
+              if b"/_next/static/css/" not in data and b"/compiled-styles.css" not in data:
+                  raise SystemExit(f"{label}: No compiled CSS href (_next/static/css or /compiled-styles.css).")
 
           check("/tmp/home.html", "GET /")
           check("/tmp/login.html", "GET /login")

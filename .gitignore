@@ -70,6 +70,9 @@ node_modules/
 # Build output
 .next/
 
+# Generated after build (see scripts/concat-next-css.js)
+public/compiled-styles.css
+
 # Firebase service account key (use env vars in production)
 serviceAccountKey.json
 mycollegepath-660df-firebase-adminsdk-fbsvc-2cd7856a32.json

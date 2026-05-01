@@ -26,6 +26,12 @@ export default function RootLayout({
 }) {
   return (
     <html lang="en" className={inter.variable}>
+      <head>
+        {/* Fallback when SSR omits stylesheet <link>s (some Linux Docker builds). */}
+        {process.env.NODE_ENV === "production" ? (
+          <link rel="stylesheet" href="/compiled-styles.css" />
+        ) : null}
+      </head>
       <body className="min-h-screen bg-[#F7F9FC] font-sans antialiased bg-pattern bg-glow">
         <Providers>{children}</Providers>
       </body>

@@ -26,6 +26,7 @@ COPY . .
 RUN if [ ! -d public ]; then mkdir -p public; fi
 RUN rm -f serviceAccountKey.json mycollegepath-660df-firebase-adminsdk-fbsvc-2cd7856a32.json
 RUN npm run build
+RUN test -s public/compiled-styles.css || (echo "compiled-styles.css missing — concat-next-css failed" && exit 1)
 
 FROM node:20-bookworm-slim AS runner
 WORKDIR /app
