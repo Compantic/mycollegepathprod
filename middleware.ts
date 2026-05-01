@@ -24,6 +24,12 @@ function decodeBase64Url(input: string): string | null {
   }
 }
 
+/** Load bundled Tailwind/CSS via HTTP Link header when streamed HTML omits <head> links (Safari + Linux Docker). */
+function attachCompiledStylesheet(res: NextResponse) {
+  res.headers.append("Link", "</compiled-styles.css>; rel=stylesheet");
+  return res;
+}
+
 function hasValidSessionShapeAndExpiry(token: string | undefined): boolean {
   if (!token) return false;
   const parts = token.split(".");
@@ -56,7 +62,7 @@ export function middleware(req: NextRequest) {
         return NextResponse.redirect(cleanLoginUrl);
       }
     }
-    return NextResponse.next();
+    return attachCompiledStylesheet(NextResponse.next());
   }
 
   const token = req.cookies.get("__session")?.value;
@@ -77,7 +83,7 @@ export function middleware(req: NextRequest) {
     return NextResponse.redirect(url);
   }
 
-  return NextResponse.next();
+  return attachCompiledStylesheet(NextResponse.next());
 }
 
 // Match only app routes — never run auth logic on /_next/*, /api/*, or static files.

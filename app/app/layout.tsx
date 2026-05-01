@@ -18,11 +18,5 @@ export default async function AppLayout({
   if (!completed) {
     redirect("/onboarding/step-1");
   }
-  return (
-    <>
-      <link rel="stylesheet" href="/compiled-styles.css" />
-      <style>{'@import url("/compiled-styles.css");'}</style>
-      <AppShell>{children}</AppShell>
-    </>
-  );
+  return <AppShell>{children}</AppShell>;
 }

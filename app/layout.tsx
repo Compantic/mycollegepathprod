@@ -25,18 +25,14 @@ export default function RootLayout({
   children: React.ReactNode;
 }) {
   return (
-    <html lang="en" className={inter.variable}>
+    <html lang="en" className={inter.variable} suppressHydrationWarning>
       <head>
         {/* Fallback when SSR omits stylesheet <link>s (some Linux Docker builds). */}
         {process.env.NODE_ENV === "production" ? (
           <link rel="stylesheet" href="/compiled-styles.css" />
         ) : null}
       </head>
-      <body className="min-h-screen bg-[#F7F9FC] font-sans antialiased bg-pattern bg-glow">
-        {process.env.NODE_ENV === "production" ? (
-          // Extra fallback: if the HTML shell drops <head> tags, this still loads CSS.
-          <style>{'@import url("/compiled-styles.css");'}</style>
-        ) : null}
+      <body className="min-h-screen bg-[#F7F9FC] font-sans antialiased bg-pattern bg-glow" suppressHydrationWarning>
         <Providers>{children}</Providers>
       </body>
     </html>
