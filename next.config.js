@@ -3,6 +3,7 @@ const nextConfig = {
   reactStrictMode: true,
   output: "standalone",
   experimental: {
+    serverComponentsExternalPackages: ["firebase-admin"],
     outputFileTracingExcludes: {
       "*": [
         "./serviceAccountKey.json",
