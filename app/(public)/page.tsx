@@ -1,7 +1,7 @@
 import Link from "next/link";
 import { getPublicMarketingMetrics, toPublicSignals } from "@/lib/marketing/publicMetrics";
 
-/** Prerender at build so the response is a full HTML document (DOCTYPE + html/body). Streaming SSR on this route was emitting a fragment-only body, which breaks Safari. */
+/** Prerender for faster TTFB; `scripts/wrap-prerender-html.js` fixes linux/amd64 prerenders that omit the document shell (Safari white screen). */
 export const dynamic = "force-static";
 export const revalidate = 300;
 import {
