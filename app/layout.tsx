@@ -33,6 +33,10 @@ export default function RootLayout({
         ) : null}
       </head>
       <body className="min-h-screen bg-[#F7F9FC] font-sans antialiased bg-pattern bg-glow">
+        {process.env.NODE_ENV === "production" ? (
+          // Extra fallback: if the HTML shell drops <head> tags, this still loads CSS.
+          <style>{'@import url("/compiled-styles.css");'}</style>
+        ) : null}
         <Providers>{children}</Providers>
       </body>
     </html>
