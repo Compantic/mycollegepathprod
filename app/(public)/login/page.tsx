@@ -109,11 +109,10 @@ function LoginForm() {
       <header className="mx-auto w-full max-w-md px-4 pb-4 pt-10 sm:pt-12">
         <Link
           href="/"
-          className="group flex flex-col items-center gap-2 rounded-2xl focus:outline-none focus-visible:ring-4 focus-visible:ring-primary-500/25"
+          className="group flex flex-col items-center rounded-2xl focus:outline-none focus-visible:ring-4 focus-visible:ring-primary-500/25"
           aria-label="MyCollegePath home"
         >
-          <LogoWordmark className="h-12 w-auto transition-transform duration-300 group-hover:scale-[1.02]" />
-          <span className="text-[11px] font-bold uppercase tracking-[0.28em] text-primary-600/90">Student portal</span>
+          <LogoWordmark className="h-16 w-auto transition-transform duration-300 group-hover:scale-[1.02] sm:h-20" />
         </Link>
       </header>
 

@@ -2,15 +2,15 @@
 const nextConfig = {
   reactStrictMode: true,
   output: "standalone",
-  experimental: {
-    serverComponentsExternalPackages: ["firebase-admin"],
-    outputFileTracingExcludes: {
-      "*": [
-        "./serviceAccountKey.json",
-        "serviceAccountKey.json",
-        "./mycollegepath-660df-firebase-adminsdk-fbsvc-2cd7856a32.json",
-      ],
-    },
+  /** Less aggressive gzip chunking on streamed responses. */
+  compress: false,
+  serverExternalPackages: ["firebase-admin"],
+  outputFileTracingExcludes: {
+    "*": [
+      "./serviceAccountKey.json",
+      "serviceAccountKey.json",
+      "./mycollegepath-660df-firebase-adminsdk-fbsvc-2cd7856a32.json",
+    ],
   },
   async redirects() {
     return [

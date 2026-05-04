@@ -44,6 +44,26 @@ export function AppShell({ children }: { children: React.ReactNode }) {
   const [sidebarOpen, setSidebarOpen] = useState(false);
 
   useEffect(() => {
+    const onResize = () => {
+      if (window.innerWidth >= 1024) setSidebarOpen(false);
+    };
+    window.addEventListener("resize", onResize);
+    return () => window.removeEventListener("resize", onResize);
+  }, []);
+
+  /**
+   * Production-only guard: a full AppShell tree should never appear inside `.app-shell-main`.
+   * If it does (RSC streaming / invalid HTML edge cases on standalone), remove the inner shell
+   * so the nav is not shown twice. See appShellLayoutCss + public/app-shell-layout.css for sibling-aside rule.
+   */
+  useEffect(() => {
+    if (process.env.NODE_ENV === "development") return;
+    document.querySelectorAll(".app-shell-main .app-shell-root").forEach((el) => {
+      el.remove();
+    });
+  }, []);
+
+  useEffect(() => {
     const unsub = auth.onAuthStateChanged(async (user) => {
       if (!user) return;
       const raw = typeof localStorage !== "undefined" ? localStorage.getItem("onboardingAnswers") : null;
@@ -97,19 +117,36 @@ export function AppShell({ children }: { children: React.ReactNode }) {
     );
 
   return (
-    <div className="flex min-h-screen bg-[#f7f9fb]">
-      {/* Desktop sidebar */}
-      <aside
-        className={cn(
-          "fixed inset-y-0 left-0 z-30 hidden w-72 flex-col border-r border-white/60 bg-slate-50/90 shadow-[0_25px_50px_-12px_rgba(15,27,45,0.12)] backdrop-blur-xl lg:flex"
-        )}
-        aria-label="App sidebar"
-      >
+    <>
+      {sidebarOpen ? (
+        <div
+          className="app-shell-backdrop fixed inset-0 z-[60] bg-slate-900/40 backdrop-blur-sm"
+          aria-hidden
+          onClick={() => setSidebarOpen(false)}
+        />
+      ) : null}
+
+      <div className="app-shell-root">
+        <aside
+          className={cn(
+            "app-shell-sidebar border-r border-white/60 bg-slate-50/90 shadow-[0_25px_50px_-12px_rgba(15,27,45,0.12)] backdrop-blur-xl"
+          )}
+          data-open={sidebarOpen ? "true" : "false"}
+          aria-label="App sidebar"
+        >
         <div className="h-1 shrink-0 bg-gradient-to-r from-[#0f1b2d] via-primary-600 to-amber-400" aria-hidden />
-        <div className="flex h-[4.5rem] shrink-0 items-center border-b border-slate-200/60 px-5">
+        <div className="flex min-h-[5rem] shrink-0 items-center justify-between border-b border-slate-200/60 px-4 sm:px-5">
           <Link href="/app/dashboard" className="group flex items-center gap-3" aria-label="Home">
-            <LogoWordmark className="h-10 w-auto transition-transform duration-300 group-hover:scale-[1.02]" />
+            <LogoWordmark className="h-10 w-auto max-w-[min(100%,14rem)] transition-transform duration-300 group-hover:scale-[1.02] sm:h-12 lg:h-14" />
           </Link>
+          <button
+            type="button"
+            onClick={() => setSidebarOpen(false)}
+            className="app-shell-only-mobile rounded-xl p-2 text-slate-500 hover:bg-white"
+            aria-label="Close menu"
+          >
+            <X className="h-5 w-5" />
+          </button>
         </div>
         <nav className="flex flex-1 flex-col gap-1 overflow-y-auto px-3 py-5" aria-label="Main navigation">
           {nav.map(({ href, label, icon: Icon }, i) => {
@@ -141,66 +178,9 @@ export function AppShell({ children }: { children: React.ReactNode }) {
             Sign out
           </button>
         </div>
-      </aside>
+        </aside>
 
-      {sidebarOpen && (
-        <>
-          <div
-            className="fixed inset-0 z-40 bg-slate-900/40 backdrop-blur-sm animate-in fade-in duration-200 lg:hidden"
-            aria-hidden
-            onClick={() => setSidebarOpen(false)}
-          />
-          <aside
-            className="fixed inset-y-0 left-0 z-50 flex w-[min(20rem,88vw)] flex-col border-r border-white/60 bg-slate-50/95 shadow-2xl backdrop-blur-xl animate-in slide-in-from-left-4 duration-200 lg:hidden"
-            aria-label="App sidebar mobile"
-          >
-            <div className="h-1 shrink-0 bg-gradient-to-r from-[#0f1b2d] via-primary-600 to-amber-400" />
-            <div className="flex items-center justify-between border-b border-slate-200/60 px-4 py-3">
-              <Link href="/app/dashboard" className="flex items-center gap-2.5" onClick={() => setSidebarOpen(false)}>
-                <LogoWordmark className="h-8 w-auto" />
-              </Link>
-              <button
-                type="button"
-                onClick={() => setSidebarOpen(false)}
-                className="rounded-xl p-2 text-slate-500 hover:bg-white"
-                aria-label="Close menu"
-              >
-                <X className="h-5 w-5" />
-              </button>
-            </div>
-            <nav className="flex flex-1 flex-col gap-1 overflow-y-auto px-3 py-4">
-              {nav.map(({ href, label, icon: Icon }) => (
-                <Link
-                  key={href}
-                  href={href}
-                  onClick={() => setSidebarOpen(false)}
-                  className={navLinkClass(pathname === href)}
-                >
-                  <span className={iconWrapClass(pathname === href)}>
-                    <Icon className="h-4 w-4 shrink-0" />
-                  </span>
-                  <span className="truncate">{label}</span>
-                </Link>
-              ))}
-            </nav>
-            <div className="border-t border-slate-200/60 p-3">
-              <button
-                type="button"
-                onClick={() => {
-                  setSidebarOpen(false);
-                  handleSignOut();
-                }}
-                className="flex w-full items-center gap-3 rounded-2xl px-3 py-2.5 text-sm font-semibold text-slate-500 hover:bg-rose-50 hover:text-rose-700"
-              >
-                <LogOut className="h-5 w-5" />
-                Sign out
-              </button>
-            </div>
-          </aside>
-        </>
-      )}
-
-      <div className="flex min-w-0 flex-1 flex-col lg:pl-72">
+        <div className="app-shell-main">
         <header
           className="sticky top-0 z-20 flex h-14 items-center gap-4 border-b border-white/50 bg-slate-50/80 px-4 shadow-sm backdrop-blur-md sm:px-6"
           aria-label="App top bar"
@@ -208,7 +188,7 @@ export function AppShell({ children }: { children: React.ReactNode }) {
           <button
             type="button"
             onClick={() => setSidebarOpen(true)}
-            className="flex items-center justify-center rounded-xl p-2 text-slate-600 transition-colors hover:bg-white hover:text-primary-700 lg:hidden"
+            className="app-shell-only-mobile flex items-center justify-center rounded-xl p-2 text-slate-600 transition-colors hover:bg-white hover:text-primary-700"
             aria-label="Open menu"
           >
             <Menu className="h-5 w-5" />
@@ -219,6 +199,7 @@ export function AppShell({ children }: { children: React.ReactNode }) {
           <div className="pointer-events-none absolute inset-0 bg-gradient-to-br from-primary-500/[0.04] via-transparent to-amber-200/10" aria-hidden />
           <div className="relative z-10">{children}</div>
         </main>
+        </div>
       </div>
 
       {!hideFloatingAi && (
@@ -280,6 +261,6 @@ export function AppShell({ children }: { children: React.ReactNode }) {
           </motion.div>
         </div>
       )}
-    </div>
+    </>
   );
 }

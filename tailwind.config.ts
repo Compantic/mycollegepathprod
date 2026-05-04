@@ -57,7 +57,7 @@ const config: Config = {
           "0 32px 64px -12px rgba(15, 27, 45, 0.16), 0 0 0 1px rgba(43, 95, 217, 0.12), 0 0 48px rgba(43, 95, 217, 0.1)",
       },
       fontFamily: {
-        sans: ["var(--font-inter)", "Inter", "system-ui", "-apple-system", "BlinkMacSystemFont", "sans-serif"],
+        sans: ["Inter", "system-ui", "-apple-system", "BlinkMacSystemFont", "sans-serif"],
       },
       fontSize: {
         "hero": ["3rem", { lineHeight: "1.15", fontWeight: "800" }],

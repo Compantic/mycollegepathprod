@@ -1,7 +1,7 @@
 # Debian slim (glibc): better compatibility for sharp/native deps than Alpine; image is slightly larger.
 FROM node:20-bookworm-slim AS deps
 WORKDIR /app
-COPY package.json package-lock.json ./
+COPY package.json package-lock.json .npmrc ./
 RUN npm ci
 
 FROM node:20-bookworm-slim AS builder
@@ -25,8 +25,10 @@ COPY --from=deps /app/node_modules ./node_modules
 COPY . .
 RUN if [ ! -d public ]; then mkdir -p public; fi
 RUN rm -f serviceAccountKey.json mycollegepath-660df-firebase-adminsdk-fbsvc-2cd7856a32.json
-RUN npm run build
-RUN test -s public/compiled-styles.css || (echo "compiled-styles.css missing — concat-next-css failed" && exit 1)
+RUN npm run build \
+  && ls -la .next/static/css \
+  && ( test "$(stat -c%s public/compiled-styles.css 2>/dev/null || echo 0)" -ge 50000 \
+    || ( echo "compiled-styles.css too small — main Tailwind chunk missing; run: docker build --no-cache" && exit 1 ) )
 
 FROM node:20-bookworm-slim AS runner
 WORKDIR /app

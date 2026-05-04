@@ -1,9 +1,7 @@
 import type { Metadata, Viewport } from "next";
-import { Inter } from "next/font/google";
 import "./globals.css";
 import { Providers } from "@/components/Providers";
-
-const inter = Inter({ subsets: ["latin"], variable: "--font-inter" });
+import { APP_SHELL_LAYOUT_CSS } from "@/lib/appShellLayoutCss";
 
 export const metadata: Metadata = {
   title: "MyCollegePath – Your College Admissions Coach",
@@ -24,15 +22,38 @@ export default function RootLayout({
 }: {
   children: React.ReactNode;
 }) {
+  /**
+   * Do not read `public/compiled-styles.css` via fs here — that opts the root layout into
+   * dynamic rendering and can yield streamed HTML without a full document shell (broken CSS in Safari).
+   * The same CSS is served from `/compiled-styles.css` as a `public/` static asset.
+   */
   return (
-    <html lang="en" className={inter.variable} suppressHydrationWarning>
+    <html lang="en" suppressHydrationWarning>
       <head>
-        {/* Fallback when SSR omits stylesheet <link>s (some Linux Docker builds). */}
-        {process.env.NODE_ENV === "production" ? (
-          <link rel="stylesheet" href="/compiled-styles.css" />
-        ) : null}
+        <style id="app-shell-layout-critical" dangerouslySetInnerHTML={{ __html: APP_SHELL_LAYOUT_CSS }} />
+        <link rel="stylesheet" href="/app-shell-layout.css" />
+        <link rel="preconnect" href="https://fonts.googleapis.com" />
+        <link rel="preconnect" href="https://fonts.gstatic.com" crossOrigin="anonymous" />
+        <link
+          href="https://fonts.googleapis.com/css2?family=Inter:wght@400;500;600;700&display=swap"
+          rel="stylesheet"
+        />
+        <link rel="stylesheet" href="/compiled-styles.css" />
       </head>
       <body className="min-h-screen bg-[#F7F9FC] font-sans antialiased bg-pattern bg-glow" suppressHydrationWarning>
+        {/* Body-level links: some CDN/streaming paths delay or omit <head>; HTML5 allows stylesheet links in body. */}
+        <link rel="stylesheet" href="/app-shell-layout.css" precedence="default" />
+        <link rel="stylesheet" href="/compiled-styles.css" precedence="default" />
+        {/* Streamed HTML often omits layout <head> in Safari; inject stylesheets during parse before first paint. */}
+        <script
+          suppressHydrationWarning
+          dangerouslySetInnerHTML={{
+            __html: `(function(){function a(h){if(document.querySelector('link[href="'+h+'"]'))return;var l=document.createElement("link");l.rel="stylesheet";l.href=h;(document.head||document.documentElement).appendChild(l)}
+a("/app-shell-layout.css");
+a("/compiled-styles.css");
+a("https://fonts.googleapis.com/css2?family=Inter:wght@400;500;600;700&display=swap");})();`,
+          }}
+        />
         <Providers>{children}</Providers>
       </body>
     </html>

@@ -283,3 +283,5 @@ input[type="number"] {
   -moz-appearance: textfield;
   appearance: textfield;
 }
+
+/* App shell layout: see lib/appShellLayoutCss.ts + <head> inline style in app/layout.tsx */

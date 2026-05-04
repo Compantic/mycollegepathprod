@@ -24,8 +24,11 @@ function decodeBase64Url(input: string): string | null {
   }
 }
 
-/** Load bundled Tailwind/CSS via HTTP Link header when streamed HTML omits <head> links (Safari + Linux Docker). */
+/** Hint browsers to fetch CSS early; streamed HTML may still omit <link> tags (see StylesheetLinks on segment layouts). */
 function attachCompiledStylesheet(res: NextResponse) {
+  res.headers.append("Link", "</app-shell-layout.css>; rel=preload; as=style");
+  res.headers.append("Link", "</compiled-styles.css>; rel=preload; as=style");
+  res.headers.append("Link", "</app-shell-layout.css>; rel=stylesheet");
   res.headers.append("Link", "</compiled-styles.css>; rel=stylesheet");
   return res;
 }

@@ -12,7 +12,7 @@ export default async function AppLayout({
   if (!user) {
     // Middleware handles unauthenticated redirects for /app/* routes.
     // Avoid forcing a global redirect here to prevent public-route loops.
-    return <>{children}</>;
+    return children;
   }
   const completed = await isOnboardingCompleted(user.uid);
   if (!completed) {
