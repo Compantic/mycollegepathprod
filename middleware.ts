@@ -2,7 +2,7 @@ import { NextResponse } from "next/server";
 import type { NextRequest } from "next/server";
 
 const APP_PREFIX = "/app";
-const PUBLIC_EXACT_PATHS = new Set(["/", "/login", "/terms", "/privacy", "/cookies", "/icon.png"]);
+const PUBLIC_EXACT_PATHS = new Set(["/", "/signin", "/terms", "/privacy", "/cookies", "/icon.png"]);
 const PUBLIC_PREFIX_PATHS = ["/onboarding/"];
 
 function isAppRoute(pathname: string): boolean {
@@ -24,10 +24,8 @@ function decodeBase64Url(input: string): string | null {
   }
 }
 
-/** Hint browsers to fetch CSS early; streamed HTML may still omit <link> tags (see StylesheetLinks on segment layouts). */
+/** Ensure CSS applies even when streamed HTML is fragmentary (missing <link> tags). */
 function attachCompiledStylesheet(res: NextResponse) {
-  res.headers.append("Link", "</app-shell-layout.css>; rel=preload; as=style");
-  res.headers.append("Link", "</compiled-styles.css>; rel=preload; as=style");
   res.headers.append("Link", "</app-shell-layout.css>; rel=stylesheet");
   res.headers.append("Link", "</compiled-styles.css>; rel=stylesheet");
   return res;
@@ -56,15 +54,16 @@ export function middleware(req: NextRequest) {
     return NextResponse.next();
   }
 
+  // Legacy entrypoint: /login currently loops on standalone in production.
+  // Route all traffic to /signin while preserving a safe `from` destination.
+  if (pathname === "/login") {
+    const url = new URL("/signin", req.url);
+    const from = searchParams.get("from");
+    if (from?.startsWith("/app")) url.searchParams.set("from", from);
+    return NextResponse.redirect(url);
+  }
+
   if (isPublicRoute(pathname)) {
-    // Prevent login self-referential redirect loops like /login?from=/login...
-    if (pathname === "/login") {
-      const from = searchParams.get("from");
-      if (from?.startsWith("/login")) {
-        const cleanLoginUrl = new URL("/login", req.url);
-        return NextResponse.redirect(cleanLoginUrl);
-      }
-    }
     return attachCompiledStylesheet(NextResponse.next());
   }
 
@@ -76,7 +75,7 @@ export function middleware(req: NextRequest) {
   }
 
   if (isAppRoute(pathname) && !hasUsableToken) {
-    const url = new URL("/login", req.url);
+    const url = new URL("/signin", req.url);
     url.searchParams.set("from", pathname);
     if (token) {
       const res = NextResponse.redirect(url);

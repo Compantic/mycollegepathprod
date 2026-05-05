@@ -1,4 +1,9 @@
-/** Prefer static HTML shell + CSS links on `/`, `/login`, onboarding, etc. (avoids RSC stream without <!DOCTYPE>). */
+import { StylesheetLinks } from "@/components/StylesheetLinks";
+
+/**
+ * Public routes should stay static where possible and always emit stylesheet links.
+ * In some standalone streaming responses, root <head> tags are omitted.
+ */
 export const dynamic = "force-static";
 
 export default function PublicLayout({
@@ -6,5 +11,11 @@ export default function PublicLayout({
 }: {
   children: React.ReactNode;
 }) {
-  return children;
+  return (
+    <>
+      <StylesheetLinks />
+      {children}
+    </>
+  );
 }
+
