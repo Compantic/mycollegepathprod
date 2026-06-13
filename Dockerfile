@@ -14,6 +14,7 @@ ARG NEXT_PUBLIC_FIREBASE_STORAGE_BUCKET
 ARG NEXT_PUBLIC_FIREBASE_MESSAGING_SENDER_ID
 ARG NEXT_PUBLIC_FIREBASE_APP_ID
 ARG NEXT_PUBLIC_APP_URL
+ARG NEXT_PUBLIC_GA_MEASUREMENT_ID
 ENV NEXT_PUBLIC_FIREBASE_API_KEY=$NEXT_PUBLIC_FIREBASE_API_KEY
 ENV NEXT_PUBLIC_FIREBASE_AUTH_DOMAIN=$NEXT_PUBLIC_FIREBASE_AUTH_DOMAIN
 ENV NEXT_PUBLIC_FIREBASE_PROJECT_ID=$NEXT_PUBLIC_FIREBASE_PROJECT_ID
@@ -21,14 +22,15 @@ ENV NEXT_PUBLIC_FIREBASE_STORAGE_BUCKET=$NEXT_PUBLIC_FIREBASE_STORAGE_BUCKET
 ENV NEXT_PUBLIC_FIREBASE_MESSAGING_SENDER_ID=$NEXT_PUBLIC_FIREBASE_MESSAGING_SENDER_ID
 ENV NEXT_PUBLIC_FIREBASE_APP_ID=$NEXT_PUBLIC_FIREBASE_APP_ID
 ENV NEXT_PUBLIC_APP_URL=$NEXT_PUBLIC_APP_URL
+ENV NEXT_PUBLIC_GA_MEASUREMENT_ID=$NEXT_PUBLIC_GA_MEASUREMENT_ID
 COPY --from=deps /app/node_modules ./node_modules
 COPY . .
 RUN if [ ! -d public ]; then mkdir -p public; fi
 RUN rm -f serviceAccountKey.json mycollegepath-660df-firebase-adminsdk-fbsvc-2cd7856a32.json
 RUN npm run build \
-  && ls -la .next/static/css \
-  && ( test "$(stat -c%s public/compiled-styles.css 2>/dev/null || echo 0)" -ge 50000 \
-    || ( echo "compiled-styles.css too small — main Tailwind chunk missing; run: docker build --no-cache" && exit 1 ) )
+  && test -f public/compiled-styles.css \
+  && test "$(stat -c%s public/compiled-styles.css 2>/dev/null || echo 0)" -ge 50000 \
+  || ( echo "compiled-styles.css missing or too small — run: docker build --no-cache" && exit 1 )
 
 FROM node:20-bookworm-slim AS runner
 WORKDIR /app

@@ -23,6 +23,7 @@ import {
   Trophy,
   ClipboardCheck,
   Sparkles,
+  CreditCard,
 } from "lucide-react";
 import { LogoWordmark } from "@/components/landing/LogoWordmark";
 
@@ -34,6 +35,7 @@ const nav = [
   { href: "/app/documents", label: "College Matching", icon: Target },
   { href: "/app/myroad", label: "My Roadmap", icon: Map },
   { href: "/app/ai-score", label: "My Score", icon: Trophy },
+  { href: "/app/billing", label: "Billing", icon: CreditCard },
   { href: "/app/profile", label: "Profile", icon: User },
 ];
 
@@ -41,29 +43,20 @@ export function AppShell({ children }: { children: React.ReactNode }) {
   const pathname = usePathname();
   const router = useRouter();
   const reduceMotion = useReducedMotion();
+  const isAppRoute = pathname?.startsWith("/app");
   const [sidebarOpen, setSidebarOpen] = useState(false);
 
   useEffect(() => {
+    if (!isAppRoute) return;
     const onResize = () => {
       if (window.innerWidth >= 1024) setSidebarOpen(false);
     };
     window.addEventListener("resize", onResize);
     return () => window.removeEventListener("resize", onResize);
-  }, []);
-
-  /**
-   * Production-only guard: a full AppShell tree should never appear inside `.app-shell-main`.
-   * If it does (RSC streaming / invalid HTML edge cases on standalone), remove the inner shell
-   * so the nav is not shown twice. See appShellLayoutCss + public/app-shell-layout.css for sibling-aside rule.
-   */
-  useEffect(() => {
-    if (process.env.NODE_ENV === "development") return;
-    document.querySelectorAll(".app-shell-main .app-shell-root").forEach((el) => {
-      el.remove();
-    });
-  }, []);
+  }, [isAppRoute]);
 
   useEffect(() => {
+    if (!isAppRoute) return;
     const unsub = auth.onAuthStateChanged(async (user) => {
       if (!user) return;
       const raw = typeof localStorage !== "undefined" ? localStorage.getItem("onboardingAnswers") : null;
@@ -85,7 +78,7 @@ export function AppShell({ children }: { children: React.ReactNode }) {
       }
     });
     return () => unsub();
-  }, []);
+  }, [isAppRoute]);
 
   async function handleSignOut() {
     await fetch("/api/auth/session", { method: "DELETE" });
@@ -101,6 +94,10 @@ export function AppShell({ children }: { children: React.ReactNode }) {
     pathname === "/app/dashboard" ||
     pathname === "/app/colleges" ||
     pathname === "/app/profile";
+
+  if (!isAppRoute) {
+    return <>{children}</>;
+  }
 
   const navLinkClass = (active: boolean) =>
     cn(
@@ -139,14 +136,6 @@ export function AppShell({ children }: { children: React.ReactNode }) {
           <Link href="/app/dashboard" className="group flex items-center gap-3" aria-label="Home">
             <LogoWordmark className="h-10 w-auto max-w-[min(100%,14rem)] transition-transform duration-300 group-hover:scale-[1.02] sm:h-12 lg:h-14" />
           </Link>
-          <button
-            type="button"
-            onClick={() => setSidebarOpen(false)}
-            className="app-shell-only-mobile rounded-xl p-2 text-slate-500 hover:bg-white"
-            aria-label="Close menu"
-          >
-            <X className="h-5 w-5" />
-          </button>
         </div>
         <nav className="flex flex-1 flex-col gap-1 overflow-y-auto px-3 py-5" aria-label="Main navigation">
           {nav.map(({ href, label, icon: Icon }, i) => {
@@ -182,20 +171,20 @@ export function AppShell({ children }: { children: React.ReactNode }) {
 
         <div className="app-shell-main">
         <header
-          className="sticky top-0 z-20 flex h-14 items-center gap-4 border-b border-white/50 bg-slate-50/80 px-4 shadow-sm backdrop-blur-md sm:px-6"
+          className="app-shell-only-mobile flex h-14 items-center gap-4 border-b border-white/50 bg-slate-50/80 px-4 shadow-sm backdrop-blur-md sm:px-6 sticky top-0 z-20"
           aria-label="App top bar"
         >
           <button
             type="button"
-            onClick={() => setSidebarOpen(true)}
+            onClick={() => setSidebarOpen((v) => !v)}
             className="app-shell-only-mobile flex items-center justify-center rounded-xl p-2 text-slate-600 transition-colors hover:bg-white hover:text-primary-700"
-            aria-label="Open menu"
+            aria-label={sidebarOpen ? "Close menu" : "Open menu"}
           >
-            <Menu className="h-5 w-5" />
+            {sidebarOpen ? <X className="h-5 w-5" /> : <Menu className="h-5 w-5" />}
           </button>
           <div className="flex-1" />
         </header>
-        <main className="relative flex-1 overflow-hidden bg-[#f7f9fb] bg-pattern p-4 sm:p-6 lg:p-8">
+        <main className="relative flex-1 overflow-x-hidden overflow-y-auto lg:overflow-hidden bg-[#f7f9fb] bg-pattern px-4 pb-4 pt-2 sm:px-6 sm:pb-6 sm:pt-3 lg:px-8 lg:pb-8 lg:pt-4">
           <div className="pointer-events-none absolute inset-0 bg-gradient-to-br from-primary-500/[0.04] via-transparent to-amber-200/10" aria-hidden />
           <div className="relative z-10">{children}</div>
         </main>

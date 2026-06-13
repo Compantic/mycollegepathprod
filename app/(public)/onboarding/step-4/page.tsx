@@ -15,7 +15,6 @@ import type { RigorousCourse } from "@/lib/onboarding/schema";
 const EXAM_OPTIONS: ExamType[] = ["SAT", "ACT", "AP", "IB", "TOEFL", "IELTS", "Duolingo", "PTE", "PSAT"];
 const EXAM_RANGES = {
   psatTotal: { min: 320, max: 1520 },
-  satSection: { min: 200, max: 800 },
   satTotal: { min: 400, max: 1600 },
   act: { min: 1, max: 36 },
   apAverage: { min: 1, max: 5 },
@@ -34,14 +33,8 @@ function OnboardingStep4Content() {
   const [gpaScale, setGpaScale] = useState<4 | 5>(4);
   const [examsTaken, setExamsTaken] = useState<ExamType[]>([]);
   const [psatTotal, setPsatTotal] = useState("");
-  const [satRW, setSatRW] = useState("");
-  const [satMath, setSatMath] = useState("");
   const [satTotal, setSatTotal] = useState("");
   const [actComposite, setActComposite] = useState("");
-  const [actEnglish, setActEnglish] = useState("");
-  const [actMath, setActMath] = useState("");
-  const [actReading, setActReading] = useState("");
-  const [actScience, setActScience] = useState("");
   const [apExamsCount, setApExamsCount] = useState("");
   const [apAverageScore, setApAverageScore] = useState("");
   const [ibTotal, setIbTotal] = useState("");
@@ -75,14 +68,13 @@ function OnboardingStep4Content() {
     if (d.gpaScale) setGpaScale(d.gpaScale);
     if (d.examsTaken?.length) setExamsTaken(d.examsTaken);
     if (d.psatTotal != null) setPsatTotal(String(d.psatTotal));
-    if (d.satReadingWriting != null) setSatRW(String(d.satReadingWriting));
-    if (d.satMath != null) setSatMath(String(d.satMath));
     if (d.satTotal != null) setSatTotal(String(d.satTotal));
+    else if (d.satScore != null) setSatTotal(String(d.satScore));
+    else if (d.satReadingWriting != null && d.satMath != null) {
+      setSatTotal(String(d.satReadingWriting + d.satMath));
+    }
     if (d.actComposite != null) setActComposite(String(d.actComposite));
-    if (d.actEnglish != null) setActEnglish(String(d.actEnglish));
-    if (d.actMath != null) setActMath(String(d.actMath));
-    if (d.actReading != null) setActReading(String(d.actReading));
-    if (d.actScience != null) setActScience(String(d.actScience));
+    else if (d.actScore != null) setActComposite(String(d.actScore));
     if (d.apExamsCount != null) setApExamsCount(String(d.apExamsCount));
     if (d.apAverageScore != null) setApAverageScore(String(d.apAverageScore));
     if (d.ibTotal != null) setIbTotal(String(d.ibTotal));
@@ -108,15 +100,6 @@ function OnboardingStep4Content() {
     if (d.researchProgramsDetail) setResearchProgramsDetail(d.researchProgramsDetail);
     if (d.difficultiesOptional) setDifficultiesOptional(d.difficultiesOptional);
   }, []);
-
-  // Auto-calculate SAT Total when Reading and Math are entered
-  useEffect(() => {
-    const rw = parseInt(satRW, 10);
-    const math = parseInt(satMath, 10);
-    if (!isNaN(rw) && !isNaN(math)) {
-      setSatTotal(String(rw + math));
-    }
-  }, [satRW, satMath]);
 
   // Auto-calculate counts from course lists
   useEffect(() => {
@@ -146,10 +129,10 @@ function OnboardingStep4Content() {
     }
   }, [rigorousHonorsCourses]);
 
-  function handleBoundedInputChange(
+  /** Allow typing multi-digit scores; only block values above max (min checked on submit). */
+  function handleScoreInputChange(
     rawValue: string,
     setValue: (v: string) => void,
-    min: number,
     max: number,
     allowDecimal = false
   ) {
@@ -165,8 +148,21 @@ function OnboardingStep4Content() {
       return;
     }
     const parsed = allowDecimal ? Number(value) : parseInt(value, 10);
-    if (Number.isNaN(parsed) || parsed < min || parsed > max) return;
+    if (Number.isNaN(parsed)) return;
+    if (parsed > max) return;
     setValue(value);
+  }
+
+  function handleGpaInputChange(rawValue: string) {
+    const value = rawValue.replace(",", ".");
+    if (!/^\d*(\.\d*)?$/.test(value)) return;
+    if (value === "") {
+      setGpa("");
+      return;
+    }
+    const parsed = Number(value);
+    if (Number.isNaN(parsed) || parsed > gpaScale) return;
+    setGpa(value);
   }
 
   function addCourse(category: 'ap' | 'ib' | 'honors') {
@@ -231,16 +227,10 @@ function OnboardingStep4Content() {
       validateNumber("psatTotal", psatTotal, EXAM_RANGES.psatTotal.min, EXAM_RANGES.psatTotal.max, "PSAT total");
     }
     if (examsTaken.includes("SAT")) {
-      validateNumber("satRW", satRW, EXAM_RANGES.satSection.min, EXAM_RANGES.satSection.max, "SAT Reading & Writing");
-      validateNumber("satMath", satMath, EXAM_RANGES.satSection.min, EXAM_RANGES.satSection.max, "SAT Math");
       validateNumber("satTotal", satTotal, EXAM_RANGES.satTotal.min, EXAM_RANGES.satTotal.max, "SAT total");
     }
     if (examsTaken.includes("ACT")) {
-      validateNumber("actComposite", actComposite, EXAM_RANGES.act.min, EXAM_RANGES.act.max, "ACT composite");
-      validateNumber("actEnglish", actEnglish, EXAM_RANGES.act.min, EXAM_RANGES.act.max, "ACT English");
-      validateNumber("actMath", actMath, EXAM_RANGES.act.min, EXAM_RANGES.act.max, "ACT Math");
-      validateNumber("actReading", actReading, EXAM_RANGES.act.min, EXAM_RANGES.act.max, "ACT Reading");
-      validateNumber("actScience", actScience, EXAM_RANGES.act.min, EXAM_RANGES.act.max, "ACT Science");
+      validateNumber("actComposite", actComposite, EXAM_RANGES.act.min, EXAM_RANGES.act.max, "ACT total");
     }
     if (examsTaken.includes("AP")) {
       validateNumber("apAverageScore", apAverageScore, EXAM_RANGES.apAverage.min, EXAM_RANGES.apAverage.max, "AP average score", false);
@@ -271,14 +261,14 @@ function OnboardingStep4Content() {
       gpaScale,
       examsTaken: examsTaken.length ? examsTaken : undefined,
       psatTotal: num(psatTotal),
-      satReadingWriting: num(satRW),
-      satMath: num(satMath),
+      satReadingWriting: undefined,
+      satMath: undefined,
       satTotal: num(satTotal),
       actComposite: num(actComposite),
-      actEnglish: num(actEnglish),
-      actMath: num(actMath),
-      actReading: num(actReading),
-      actScience: num(actScience),
+      actEnglish: undefined,
+      actMath: undefined,
+      actReading: undefined,
+      actScience: undefined,
       apExamsCount: num(apExamsCount),
       apAverageScore: f(apAverageScore),
       ibTotal: num(ibTotal),
@@ -303,7 +293,7 @@ function OnboardingStep4Content() {
       researchPrograms: researchPrograms || undefined,
       researchProgramsDetail: researchPrograms === "Yes" ? researchProgramsDetail.trim() || undefined : undefined,
       difficultiesOptional: difficultiesOptional.trim() || undefined,
-      satScore: num(satTotal) ?? (num(satRW) != null || num(satMath) != null ? (num(satRW) ?? 0) + (num(satMath) ?? 0) : undefined),
+      satScore: num(satTotal),
       actScore: num(actComposite),
     });
     if (fromProfile && auth.currentUser) {
@@ -344,7 +334,7 @@ function OnboardingStep4Content() {
             min={0}
             max={gpaScale}
             value={gpa}
-            onChange={(e) => handleBoundedInputChange(e.target.value, setGpa, 0, gpaScale, true)}
+            onChange={(e) => handleGpaInputChange(e.target.value)}
             placeholder={`e.g. 3.6 (0.0–${gpaScale}.0)`}
             className="mt-3 w-32 onboarding-input h-11"
             required
@@ -365,97 +355,57 @@ function OnboardingStep4Content() {
         {examsTaken.includes("PSAT") && (
           <div>
             <label className="block text-sm font-medium text-text-primary">PSAT total</label>
-          <Input
-            type="number"
-            min={EXAM_RANGES.psatTotal.min}
-            max={EXAM_RANGES.psatTotal.max}
-            value={psatTotal}
-            onChange={(e) => handleBoundedInputChange(e.target.value, setPsatTotal, EXAM_RANGES.psatTotal.min, EXAM_RANGES.psatTotal.max)}
-            placeholder="e.g. 1200"
-            className="mt-2 w-32"
-          />
-          {errors.psatTotal && <p className="mt-1 text-sm text-status-dangerText">{errors.psatTotal}</p>}
+            <Input
+              type="text"
+              inputMode="numeric"
+              value={psatTotal}
+              onChange={(e) => handleScoreInputChange(e.target.value, setPsatTotal, EXAM_RANGES.psatTotal.max)}
+              placeholder="e.g. 1200"
+              className="mt-2 w-40 onboarding-input h-11"
+            />
+            <p className="mt-1 text-xs text-text-muted">{EXAM_RANGES.psatTotal.min}–{EXAM_RANGES.psatTotal.max}</p>
+            {errors.psatTotal && <p className="mt-1 text-sm text-status-dangerText">{errors.psatTotal}</p>}
           </div>
         )}
         {examsTaken.includes("SAT") && (
-          <div className="grid gap-3 sm:grid-cols-3">
-            <div>
-              <label className="block text-sm font-medium text-text-primary">SAT Reading & Writing</label>
-              <Input
-                type="number"
-                min={EXAM_RANGES.satSection.min}
-                max={EXAM_RANGES.satSection.max}
-                value={satRW}
-                onChange={(e) => handleBoundedInputChange(e.target.value, setSatRW, EXAM_RANGES.satSection.min, EXAM_RANGES.satSection.max)}
-                placeholder="e.g. 340"
-                className="mt-2"
-              />
-              {errors.satRW && <p className="mt-1 text-sm text-status-dangerText">{errors.satRW}</p>}
-            </div>
-            <div>
-              <label className="block text-sm font-medium text-text-primary">SAT Math</label>
-              <Input
-                type="number"
-                min={EXAM_RANGES.satSection.min}
-                max={EXAM_RANGES.satSection.max}
-                value={satMath}
-                onChange={(e) => handleBoundedInputChange(e.target.value, setSatMath, EXAM_RANGES.satSection.min, EXAM_RANGES.satSection.max)}
-                placeholder="e.g. 720"
-                className="mt-2"
-              />
-              {errors.satMath && <p className="mt-1 text-sm text-status-dangerText">{errors.satMath}</p>}
-            </div>
-            <div>
-              <label className="block text-sm font-medium text-text-primary">SAT total (optional)</label>
-              <Input
-                type="number"
-                min={EXAM_RANGES.satTotal.min}
-                max={EXAM_RANGES.satTotal.max}
-                value={satTotal}
-                onChange={(e) => handleBoundedInputChange(e.target.value, setSatTotal, EXAM_RANGES.satTotal.min, EXAM_RANGES.satTotal.max)}
-                placeholder="e.g. 1060"
-                className="mt-2"
-              />
-              {errors.satTotal && <p className="mt-1 text-sm text-status-dangerText">{errors.satTotal}</p>}
-            </div>
+          <div>
+            <label className="block text-sm font-medium text-text-primary">SAT total</label>
+            <Input
+              type="text"
+              inputMode="numeric"
+              value={satTotal}
+              onChange={(e) => handleScoreInputChange(e.target.value, setSatTotal, EXAM_RANGES.satTotal.max)}
+              placeholder="e.g. 1420"
+              className="mt-2 w-40 onboarding-input h-11"
+            />
+            <p className="mt-1 text-xs text-text-muted">{EXAM_RANGES.satTotal.min}–{EXAM_RANGES.satTotal.max}</p>
+            {errors.satTotal && <p className="mt-1 text-sm text-status-dangerText">{errors.satTotal}</p>}
           </div>
         )}
         {examsTaken.includes("ACT") && (
-          <div className="space-y-3">
-            <div>
-              <label className="block text-sm font-medium text-text-primary">ACT composite</label>
-              <Input
-                type="number"
-                min={EXAM_RANGES.act.min}
-                max={EXAM_RANGES.act.max}
-                value={actComposite}
-                onChange={(e) => handleBoundedInputChange(e.target.value, setActComposite, EXAM_RANGES.act.min, EXAM_RANGES.act.max)}
-                placeholder="e.g. 28"
-                className="mt-2 w-24"
-              />
-              {errors.actComposite && <p className="mt-1 text-sm text-status-dangerText">{errors.actComposite}</p>}
-            </div>
-            <p className="text-xs text-text-muted">Optional section scores:</p>
-            <div className="grid grid-cols-2 sm:grid-cols-4 gap-2">
-              <Input type="number" min={EXAM_RANGES.act.min} max={EXAM_RANGES.act.max} placeholder="English" value={actEnglish} onChange={(e) => handleBoundedInputChange(e.target.value, setActEnglish, EXAM_RANGES.act.min, EXAM_RANGES.act.max)} />
-              <Input type="number" min={EXAM_RANGES.act.min} max={EXAM_RANGES.act.max} placeholder="Math" value={actMath} onChange={(e) => handleBoundedInputChange(e.target.value, setActMath, EXAM_RANGES.act.min, EXAM_RANGES.act.max)} />
-              <Input type="number" min={EXAM_RANGES.act.min} max={EXAM_RANGES.act.max} placeholder="Reading" value={actReading} onChange={(e) => handleBoundedInputChange(e.target.value, setActReading, EXAM_RANGES.act.min, EXAM_RANGES.act.max)} />
-              <Input type="number" min={EXAM_RANGES.act.min} max={EXAM_RANGES.act.max} placeholder="Science" value={actScience} onChange={(e) => handleBoundedInputChange(e.target.value, setActScience, EXAM_RANGES.act.min, EXAM_RANGES.act.max)} />
-            </div>
-            {(errors.actEnglish || errors.actMath || errors.actReading || errors.actScience) && (
-              <p className="text-sm text-status-dangerText">ACT section scores must be between {EXAM_RANGES.act.min} and {EXAM_RANGES.act.max}.</p>
-            )}
+          <div>
+            <label className="block text-sm font-medium text-text-primary">ACT total (composite)</label>
+            <Input
+              type="text"
+              inputMode="numeric"
+              value={actComposite}
+              onChange={(e) => handleScoreInputChange(e.target.value, setActComposite, EXAM_RANGES.act.max)}
+              placeholder="e.g. 28"
+              className="mt-2 w-32 onboarding-input h-11"
+            />
+            <p className="mt-1 text-xs text-text-muted">{EXAM_RANGES.act.min}–{EXAM_RANGES.act.max}</p>
+            {errors.actComposite && <p className="mt-1 text-sm text-status-dangerText">{errors.actComposite}</p>}
           </div>
         )}
         {examsTaken.includes("AP") && (
           <div className="flex gap-4">
             <div>
               <label className="block text-sm font-medium text-text-primary">Number of AP exams</label>
-              <Input type="number" min={0} max={99} value={apExamsCount} onChange={(e) => handleBoundedInputChange(e.target.value, setApExamsCount, 0, 99)} placeholder="e.g. 3" className="mt-2 w-24" />
+              <Input type="text" inputMode="numeric" value={apExamsCount} onChange={(e) => handleScoreInputChange(e.target.value, setApExamsCount, 99)} placeholder="e.g. 3" className="mt-2 w-24 onboarding-input h-11" />
             </div>
             <div>
               <label className="block text-sm font-medium text-text-primary">Average score (optional)</label>
-              <Input type="number" min={EXAM_RANGES.apAverage.min} max={EXAM_RANGES.apAverage.max} step="0.5" value={apAverageScore} onChange={(e) => handleBoundedInputChange(e.target.value, setApAverageScore, EXAM_RANGES.apAverage.min, EXAM_RANGES.apAverage.max, true)} placeholder="e.g. 4.0" className="mt-2 w-24" />
+              <Input type="text" inputMode="decimal" value={apAverageScore} onChange={(e) => handleScoreInputChange(e.target.value, setApAverageScore, EXAM_RANGES.apAverage.max, true)} placeholder="e.g. 4.0" className="mt-2 w-24 onboarding-input h-11" />
               {errors.apAverageScore && <p className="mt-1 text-sm text-status-dangerText">{errors.apAverageScore}</p>}
             </div>
           </div>
@@ -463,16 +413,40 @@ function OnboardingStep4Content() {
         {examsTaken.includes("IB") && (
           <div>
             <label className="block text-sm font-medium text-text-primary">IB predicted / total</label>
-            <Input type="number" min={EXAM_RANGES.ibTotal.min} max={EXAM_RANGES.ibTotal.max} value={ibTotal} onChange={(e) => handleBoundedInputChange(e.target.value, setIbTotal, EXAM_RANGES.ibTotal.min, EXAM_RANGES.ibTotal.max)} placeholder="e.g. 42" className="mt-2 w-24" />
+            <Input type="text" inputMode="numeric" value={ibTotal} onChange={(e) => handleScoreInputChange(e.target.value, setIbTotal, EXAM_RANGES.ibTotal.max)} placeholder="e.g. 42" className="mt-2 w-32 onboarding-input h-11" />
             {errors.ibTotal && <p className="mt-1 text-sm text-status-dangerText">{errors.ibTotal}</p>}
           </div>
         )}
         {(examsTaken.includes("TOEFL") || examsTaken.includes("IELTS") || examsTaken.includes("Duolingo") || examsTaken.includes("PTE")) && (
           <div className="grid gap-3 sm:grid-cols-2">
-            {examsTaken.includes("TOEFL") && <div><label className="block text-sm font-medium text-text-primary">TOEFL</label><Input type="number" min={EXAM_RANGES.toefl.min} max={EXAM_RANGES.toefl.max} value={toeflScore} onChange={(e) => handleBoundedInputChange(e.target.value, setToeflScore, EXAM_RANGES.toefl.min, EXAM_RANGES.toefl.max)} placeholder="e.g. 100" className="mt-2" />{errors.toeflScore && <p className="mt-1 text-sm text-status-dangerText">{errors.toeflScore}</p>}</div>}
-            {examsTaken.includes("IELTS") && <div><label className="block text-sm font-medium text-text-primary">IELTS</label><Input type="number" min={EXAM_RANGES.ielts.min} max={EXAM_RANGES.ielts.max} step="0.5" value={ieltsScore} onChange={(e) => handleBoundedInputChange(e.target.value, setIeltsScore, EXAM_RANGES.ielts.min, EXAM_RANGES.ielts.max, true)} placeholder="e.g. 7.0" className="mt-2" />{errors.ieltsScore && <p className="mt-1 text-sm text-status-dangerText">{errors.ieltsScore}</p>}</div>}
-            {examsTaken.includes("Duolingo") && <div><label className="block text-sm font-medium text-text-primary">Duolingo</label><Input type="number" min={EXAM_RANGES.duolingo.min} max={EXAM_RANGES.duolingo.max} value={duolingoScore} onChange={(e) => handleBoundedInputChange(e.target.value, setDuolingoScore, EXAM_RANGES.duolingo.min, EXAM_RANGES.duolingo.max)} placeholder="e.g. 120" className="mt-2" />{errors.duolingoScore && <p className="mt-1 text-sm text-status-dangerText">{errors.duolingoScore}</p>}</div>}
-            {examsTaken.includes("PTE") && <div><label className="block text-sm font-medium text-text-primary">PTE</label><Input type="number" min={EXAM_RANGES.pte.min} max={EXAM_RANGES.pte.max} value={pteScore} onChange={(e) => handleBoundedInputChange(e.target.value, setPteScore, EXAM_RANGES.pte.min, EXAM_RANGES.pte.max)} placeholder="e.g. 65" className="mt-2" />{errors.pteScore && <p className="mt-1 text-sm text-status-dangerText">{errors.pteScore}</p>}</div>}
+            {examsTaken.includes("TOEFL") && (
+              <div>
+                <label className="block text-sm font-medium text-text-primary">TOEFL total</label>
+                <Input type="text" inputMode="numeric" value={toeflScore} onChange={(e) => handleScoreInputChange(e.target.value, setToeflScore, EXAM_RANGES.toefl.max)} placeholder="e.g. 100" className="mt-2 onboarding-input h-11" />
+                {errors.toeflScore && <p className="mt-1 text-sm text-status-dangerText">{errors.toeflScore}</p>}
+              </div>
+            )}
+            {examsTaken.includes("IELTS") && (
+              <div>
+                <label className="block text-sm font-medium text-text-primary">IELTS total</label>
+                <Input type="text" inputMode="decimal" value={ieltsScore} onChange={(e) => handleScoreInputChange(e.target.value, setIeltsScore, EXAM_RANGES.ielts.max, true)} placeholder="e.g. 7.0" className="mt-2 onboarding-input h-11" />
+                {errors.ieltsScore && <p className="mt-1 text-sm text-status-dangerText">{errors.ieltsScore}</p>}
+              </div>
+            )}
+            {examsTaken.includes("Duolingo") && (
+              <div>
+                <label className="block text-sm font-medium text-text-primary">Duolingo total</label>
+                <Input type="text" inputMode="numeric" value={duolingoScore} onChange={(e) => handleScoreInputChange(e.target.value, setDuolingoScore, EXAM_RANGES.duolingo.max)} placeholder="e.g. 120" className="mt-2 onboarding-input h-11" />
+                {errors.duolingoScore && <p className="mt-1 text-sm text-status-dangerText">{errors.duolingoScore}</p>}
+              </div>
+            )}
+            {examsTaken.includes("PTE") && (
+              <div>
+                <label className="block text-sm font-medium text-text-primary">PTE total</label>
+                <Input type="text" inputMode="numeric" value={pteScore} onChange={(e) => handleScoreInputChange(e.target.value, setPteScore, EXAM_RANGES.pte.max)} placeholder="e.g. 65" className="mt-2 onboarding-input h-11" />
+                {errors.pteScore && <p className="mt-1 text-sm text-status-dangerText">{errors.pteScore}</p>}
+              </div>
+            )}
           </div>
         )}
 

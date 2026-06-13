@@ -13,11 +13,14 @@ const nextConfig = {
     ],
   },
   async redirects() {
+    return [];
+  },
+  /** Stale cached HTML at the edge can serve fragment-only responses → refresh loses CSS; force revalidation for app shell. */
+  async headers() {
     return [
       {
-        source: "/pricing",
-        destination: "/#pricing",
-        permanent: true,
+        source: "/app/:path*",
+        headers: [{ key: "Cache-Control", value: "private, no-cache, must-revalidate" }],
       },
     ];
   },

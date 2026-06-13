@@ -165,7 +165,7 @@ export function CollegesSearch({
     e.preventDefault();
     const user = auth.currentUser;
     if (!user) {
-      router.push("/login?from=/app/colleges");
+      router.push("/signin?from=/app/colleges");
       return;
     }
     const isFav = favorites.has(college.id);

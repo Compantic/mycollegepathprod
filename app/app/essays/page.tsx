@@ -19,6 +19,7 @@ import {
   BarChart3,
 } from "lucide-react";
 import { auth } from "@/lib/firebase/client";
+import { fetchWithAuth } from "@/lib/auth/fetchWithAuth";
 import {
   listEssays,
   getEssay,
@@ -216,9 +217,8 @@ export default function EssaysPage() {
     setAnalysis(null);
     setLoading(true);
     try {
-      const res = await fetch("/api/essays/analyze", {
+      const res = await fetchWithAuth("/api/essays/analyze", {
         method: "POST",
-        credentials: "include",
         headers: { "Content-Type": "application/json" },
         body: JSON.stringify({ essay: essayText }),
       });

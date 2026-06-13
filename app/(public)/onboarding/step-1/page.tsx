@@ -7,7 +7,7 @@ import { fileToProfileJpegDataUrl } from "@/lib/onboarding/profilePhotoResize";
 import { useToastOptional } from "@/components/ui/toast";
 import { auth } from "@/lib/firebase/client";
 import type { GradeLevel, Gender } from "@/lib/onboarding/schema";
-import { ageFromDateOfBirth } from "@/lib/onboarding/utils";
+import { ageFromBirthYear, birthYearFromDraft } from "@/lib/onboarding/utils";
 import { Button } from "@/components/ui/button";
 import { OnboardingStepCard } from "@/components/onboarding/OnboardingStepCard";
 import { Input } from "@/components/ui/input";
@@ -15,7 +15,6 @@ import { STEP_CONFIG } from "@/lib/onboarding/stepConfig";
 import { cn } from "@/lib/utils";
 import { buttonVariants } from "@/components/ui/button";
 import { User, Calendar as CalendarSectionIcon, Search, ChevronDown, Camera } from "lucide-react";
-import { DateOfBirthPicker } from "@/components/onboarding/DateOfBirthPicker";
 
 const US_STATES = [
   "AL", "AK", "AZ", "AR", "CA", "CO", "CT", "DE", "FL", "GA", "HI", "ID", "IL", "IN", "IA", "KS", "KY", "LA", "ME", "MD",
@@ -24,6 +23,9 @@ const US_STATES = [
 ];
 
 const GRAD_YEARS = [2025, 2026, 2027, 2028, 2029, 2030, 2031, 2032, 2033];
+
+const CURRENT_YEAR = new Date().getFullYear();
+const BIRTH_YEARS = Array.from({ length: CURRENT_YEAR - 1949 }, (_, i) => CURRENT_YEAR - 10 - i);
 
 const GRADE_OPTIONS: { value: GradeLevel; label: string }[] = [
   { value: "9", label: "Grade 9" },
@@ -52,7 +54,7 @@ function OnboardingStep1Content() {
   const fromProfile = searchParams.get("from") === "profile";
   const [firstName, setFirstName] = useState("");
   const [lastName, setLastName] = useState("");
-  const [dateOfBirth, setDateOfBirth] = useState("");
+  const [birthYear, setBirthYear] = useState<number | "">("");
   const [gender, setGender] = useState<Gender | "">("");
   const [genderOther, setGenderOther] = useState("");
   const [state, setState] = useState("");
@@ -69,7 +71,8 @@ function OnboardingStep1Content() {
     if (d.profilePhotoDataUrl) setPhotoPreview(d.profilePhotoDataUrl);
     if (d.firstName) setFirstName(d.firstName);
     if (d.lastName) setLastName(d.lastName);
-    if (d.dateOfBirth) setDateOfBirth(d.dateOfBirth);
+    const y = birthYearFromDraft(d);
+    if (y != null) setBirthYear(y);
     if (d.gender) setGender(d.gender);
     if (d.genderOther) setGenderOther(d.genderOther);
     if (d.state) setState(d.state);
@@ -84,7 +87,7 @@ function OnboardingStep1Content() {
     const err: Record<string, string> = {};
     if (!firstName.trim()) err.firstName = "First name is required.";
     if (!lastName.trim()) err.lastName = "Last name is required.";
-    if (!dateOfBirth.trim()) err.dateOfBirth = "Date of birth is required.";
+    if (birthYear === "" || birthYear == null) err.birthYear = "Birth year is required.";
     if (!gender) err.gender = "Please select a gender.";
     if (!state) err.state = "State is required.";
     if (expectedGraduationYear === "" || expectedGraduationYear == null) err.expectedGraduationYear = "Expected graduation year is required.";
@@ -95,7 +98,8 @@ function OnboardingStep1Content() {
     saveOnboardingDraft({
       firstName: firstName.trim(),
       lastName: lastName.trim(),
-      dateOfBirth: dateOfBirth.trim() || undefined,
+      birthYear: birthYear === "" ? undefined : Number(birthYear),
+      dateOfBirth: undefined,
       gender: gender || undefined,
       genderOther: gender === "Other" ? genderOther.trim() || undefined : undefined,
       country: APP_COUNTRY,
@@ -113,7 +117,7 @@ function OnboardingStep1Content() {
     router.push("/onboarding/step-2");
   }
 
-  const displayAge = dateOfBirth ? ageFromDateOfBirth(dateOfBirth) : null;
+  const displayAge = birthYear !== "" ? ageFromBirthYear(Number(birthYear)) : null;
   const config = STEP_CONFIG[1];
 
   async function handlePhotoChange(e: React.ChangeEvent<HTMLInputElement>) {
@@ -244,11 +248,25 @@ function OnboardingStep1Content() {
                 <CalendarSectionIcon className="h-5 w-5" />
               </div>
               <div className="flex-1">
-                <label htmlFor="dob" className="block text-sm font-medium text-text-primary mb-1.5">Date of birth</label>
-                <p className="text-xs text-text-muted mb-1.5">Use the month and year menus, then tap your day</p>
-                <DateOfBirthPicker id="dob" value={dateOfBirth} onChange={setDateOfBirth} invalid={!!errors.dateOfBirth} />
-                {displayAge != null && <p className="mt-1.5 text-xs text-primary-600 font-medium">Age: {displayAge} years</p>}
-                {errors.dateOfBirth && <p className="mt-1.5 text-sm text-status-dangerText">{errors.dateOfBirth}</p>}
+                <label htmlFor="birth-year" className="block text-sm font-medium text-text-primary mb-1.5">Birth year</label>
+                <p className="text-xs text-text-muted mb-1.5">Select the year you were born</p>
+                <select
+                  id="birth-year"
+                  value={birthYear === "" ? "" : birthYear}
+                  onChange={(e) => setBirthYear(e.target.value ? Number(e.target.value) : "")}
+                  className="onboarding-select max-w-xs"
+                  aria-required
+                  aria-invalid={!!errors.birthYear}
+                >
+                  <option value="">Select year</option>
+                  {BIRTH_YEARS.map((y) => (
+                    <option key={y} value={y}>
+                      {y}
+                    </option>
+                  ))}
+                </select>
+                {displayAge != null && <p className="mt-1.5 text-xs text-primary-600 font-medium">Approx. age: {displayAge} years</p>}
+                {errors.birthYear && <p className="mt-1.5 text-sm text-status-dangerText">{errors.birthYear}</p>}
               </div>
             </div>
 

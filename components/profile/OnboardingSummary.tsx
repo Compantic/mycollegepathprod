@@ -68,6 +68,7 @@ export function OnboardingSummary({ answers, onEditSection, hideEdit }: Onboardi
   const {
     firstName,
     lastName,
+    birthYear,
     dateOfBirth,
     gender,
     genderOther,
@@ -171,7 +172,16 @@ export function OnboardingSummary({ answers, onEditSection, hideEdit }: Onboardi
       <div className="grid gap-6 lg:grid-cols-2">
         <Section title="Identity & Basics" icon={<Lightbulb className="size-5" />} step={1} onEditSection={onEditSection} hideEdit={hideEdit}>
           <Field label="Full Name" value={[firstName, lastName].filter(Boolean).join(" ") || null} />
-          <Field label="Date of Birth" value={dateOfBirth} />
+          <Field
+            label="Birth year"
+            value={
+              birthYear != null
+                ? String(birthYear)
+                : dateOfBirth
+                  ? String(dateOfBirth).slice(0, 4)
+                  : null
+            }
+          />
           <Field label="Gender" value={gender ? `${gender}${gender === "Other" && genderOther ? ` — ${genderOther}` : ""}` : null} />
           <Field label="Location" value={[city, state, country].filter(Boolean).join(", ") || null} />
           <Field label="Current high school" value={currentHighSchool} />

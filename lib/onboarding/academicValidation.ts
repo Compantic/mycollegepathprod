@@ -23,21 +23,15 @@ export function normalizeAcademicAnswers(answers: OnboardingAnswers): Onboarding
   out.gpa = inRange(out.gpa, 0, gpaMax);
 
   out.psatTotal = inIntegerRange(out.psatTotal, 320, 1520);
-  out.satReadingWriting = inIntegerRange(out.satReadingWriting, 200, 800);
-  out.satMath = inIntegerRange(out.satMath, 200, 800);
-
-  if (out.satReadingWriting != null && out.satMath != null) {
-    const computedSat = out.satReadingWriting + out.satMath;
-    out.satTotal = inIntegerRange(computedSat, 400, 1600);
-  } else {
-    out.satTotal = inIntegerRange(out.satTotal, 400, 1600);
-  }
+  out.satTotal = inIntegerRange(out.satTotal, 400, 1600);
+  out.satReadingWriting = undefined;
+  out.satMath = undefined;
 
   out.actComposite = inIntegerRange(out.actComposite, 1, 36);
-  out.actEnglish = inIntegerRange(out.actEnglish, 1, 36);
-  out.actMath = inIntegerRange(out.actMath, 1, 36);
-  out.actReading = inIntegerRange(out.actReading, 1, 36);
-  out.actScience = inIntegerRange(out.actScience, 1, 36);
+  out.actEnglish = undefined;
+  out.actMath = undefined;
+  out.actReading = undefined;
+  out.actScience = undefined;
 
   out.apExamsCount = inIntegerRange(out.apExamsCount, 0, 99);
   out.apAverageScore = inRange(out.apAverageScore, 1, 5);

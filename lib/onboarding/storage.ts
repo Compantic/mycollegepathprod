@@ -143,6 +143,7 @@ function sanitizeDraft(parsed: unknown): OnboardingAnswers {
     "profilePhotoDataUrl",
     "firstName",
     "lastName",
+    "birthYear",
     "dateOfBirth",
     "gender",
     "genderOther",

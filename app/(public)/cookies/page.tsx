@@ -3,6 +3,7 @@
 import { useState, useEffect } from "react";
 import Link from "next/link";
 import { ArrowLeft, ShieldCheck, Lock, Eye, FileText, Info, Cookie, Settings, BarChart3, ShieldAlert, Check } from "lucide-react";
+import { COOKIE_CONSENT_KEY, dispatchCookieConsent } from "@/lib/analytics/consent";
 
 export default function CookiePolicy() {
   const lastUpdated = "April 17, 2026";
@@ -17,7 +18,7 @@ export default function CookiePolicy() {
 
   // Initialize from localStorage
   useEffect(() => {
-    const stored = localStorage.getItem("mcp_cookie_consent");
+    const stored = localStorage.getItem(COOKIE_CONSENT_KEY);
     if (stored) {
       try {
         setPreferences(JSON.parse(stored));
@@ -29,7 +30,8 @@ export default function CookiePolicy() {
 
   const handleSave = (newPrefs?: typeof preferences) => {
     const toSave = newPrefs || preferences;
-    localStorage.setItem("mcp_cookie_consent", JSON.stringify(toSave));
+    localStorage.setItem(COOKIE_CONSENT_KEY, JSON.stringify(toSave));
+    dispatchCookieConsent(toSave);
     setSaved(true);
     setTimeout(() => setSaved(false), 2000);
   };

@@ -121,6 +121,9 @@ export interface OnboardingAnswers {
   profilePhotoDataUrl?: string;
   firstName?: string;
   lastName?: string;
+  /** Birth year only (preferred). */
+  birthYear?: number;
+  /** @deprecated Full date; legacy drafts only. */
   dateOfBirth?: string;
   gender?: Gender;
   genderOther?: string;
@@ -307,7 +310,7 @@ export const stepConfig = {
   1: [
     "firstName",
     "lastName",
-    "dateOfBirth",
+    "birthYear",
     "gender",
     "genderOther",
     "country",

@@ -292,7 +292,7 @@ export default function OnboardingStep7Page() {
         transition={{ delay: reduceMotion ? 0 : 0.15 }}
       >
         Already have an account?{" "}
-        <Link href="/login" className="font-semibold text-primary-700 underline-offset-2 hover:text-primary-600 hover:underline">
+        <Link href="/signin" className="font-semibold text-primary-700 underline-offset-2 hover:text-primary-600 hover:underline">
           Log in
         </Link>
       </motion.p>

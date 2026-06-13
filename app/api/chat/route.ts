@@ -11,6 +11,7 @@ import { chatPostBodySchema } from "@/lib/validation/api";
 import { getApiErrorStatus } from "@/lib/errors/api";
 import { enforceUserRateLimit } from "@/lib/rateLimit/server";
 import { logApiError } from "@/lib/logging/api";
+import { BillingError, enforceAndIncrementUsage } from "@/lib/billing/enforce";
 
 export async function POST(req: NextRequest) {
   try {
@@ -19,6 +20,8 @@ export async function POST(req: NextRequest) {
       console.warn("[chat] POST: no user session");
       return NextResponse.json({ error: "Unauthorized" }, { status: 401 });
     }
+
+    await enforceAndIncrementUsage(user.uid, "chat");
 
     await enforceUserRateLimit({
       userId: user.uid,
@@ -67,6 +70,9 @@ export async function POST(req: NextRequest) {
     if (!text) console.warn("[chat] POST: empty content from OpenAI");
     return NextResponse.json({ content: text || "I couldn't generate a response. Please try again." });
   } catch (err) {
+    if (err instanceof BillingError) {
+      return NextResponse.json({ error: err.message, code: err.code }, { status: err.status });
+    }
     const status = getApiErrorStatus(err);
     logApiError("chat", {}, err);
     if (status === 429) {

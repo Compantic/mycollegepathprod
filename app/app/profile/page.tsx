@@ -5,7 +5,7 @@ import { ProfilePageContent } from "@/components/profile/ProfilePageContent";
 
 export default async function ProfilePage() {
   const user = await getSessionUserFromCookies();
-  if (!user) redirect("/login?from=/app/profile");
+  if (!user) redirect("/signin?from=/app/profile");
 
   const data = await getDashboardUserData(user.uid, user.email ?? null);
 

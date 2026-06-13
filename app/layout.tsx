@@ -1,9 +1,15 @@
 import type { Metadata, Viewport } from "next";
 import "./globals.css";
 import { Providers } from "@/components/Providers";
+import { GoogleAnalytics } from "@/components/analytics/GoogleAnalytics";
 import { APP_SHELL_LAYOUT_CSS } from "@/lib/appShellLayoutCss";
 
+const appOrigin =
+  process.env.NEXT_PUBLIC_APP_URL?.trim() ||
+  (process.env.VERCEL_URL ? `https://${process.env.VERCEL_URL}` : "http://localhost:3000");
+
 export const metadata: Metadata = {
+  metadataBase: new URL(appOrigin),
   title: "MyCollegePath – Your College Admissions Coach",
   description: "Find and evaluate colleges with personalized matching and AI guidance.",
   icons: {
@@ -34,6 +40,7 @@ export default function RootLayout({
         <link rel="stylesheet" href="/app-shell-layout.css" />
         <link rel="preconnect" href="https://fonts.googleapis.com" />
         <link rel="preconnect" href="https://fonts.gstatic.com" crossOrigin="anonymous" />
+        <link rel="preconnect" href="https://www.googletagmanager.com" />
         <link
           href="https://fonts.googleapis.com/css2?family=Inter:wght@400;500;600;700&display=swap"
           rel="stylesheet"
@@ -54,6 +61,7 @@ a("/compiled-styles.css");
 a("https://fonts.googleapis.com/css2?family=Inter:wght@400;500;600;700&display=swap");})();`,
           }}
         />
+        <GoogleAnalytics />
         <Providers>{children}</Providers>
       </body>
     </html>

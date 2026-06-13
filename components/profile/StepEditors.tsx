@@ -3,6 +3,7 @@
 import { cn } from "@/lib/utils";
 import { Input } from "@/components/ui/input";
 import { INTEREST_CATEGORIES, ACTIVITY_TYPES } from "@/lib/onboarding/schema";
+import { birthYearFromDraft } from "@/lib/onboarding/utils";
 import { motion } from "framer-motion";
 
 interface TagCloudProps {
@@ -66,8 +67,24 @@ export function Step1Editor({ data, onChange }: any) {
         <Input value={data.state || ""} onChange={(e) => onChange({ state: e.target.value })} className="mt-1.5 h-12 rounded-xl" />
       </div>
       <div className="col-span-1">
-        <label className="text-[10px] font-black uppercase tracking-widest text-slate-500">Date of Birth</label>
-        <Input type="date" value={data.dateOfBirth || ""} onChange={(e) => onChange({ dateOfBirth: e.target.value })} className="mt-1.5 h-12 rounded-xl" />
+        <label className="text-[10px] font-black uppercase tracking-widest text-slate-500">Birth Year</label>
+        <select
+          value={data.birthYear ?? birthYearFromDraft(data) ?? ""}
+          onChange={(e) =>
+            onChange({
+              birthYear: e.target.value ? Number(e.target.value) : undefined,
+              dateOfBirth: undefined,
+            })
+          }
+          className="mt-1.5 flex h-12 w-full rounded-xl border border-slate-200 bg-white px-3 py-2 text-sm ring-offset-white focus-visible:outline-none focus-visible:ring-2 focus-visible:ring-primary-600 focus-visible:ring-offset-2"
+        >
+          <option value="">Select year</option>
+          {Array.from({ length: new Date().getFullYear() - 1949 }, (_, i) => new Date().getFullYear() - 10 - i).map((y) => (
+            <option key={y} value={y}>
+              {y}
+            </option>
+          ))}
+        </select>
       </div>
       <div className="col-span-1">
         <label className="text-[10px] font-black uppercase tracking-widest text-slate-500">Grade Level</label>
@@ -188,12 +205,38 @@ export function Step4Editor({ data, onChange }: any) {
         </select>
       </div>
       <div className="col-span-1">
-        <label className="text-[10px] font-black uppercase tracking-widest text-slate-500">SAT Score</label>
-        <Input type="number" min={400} max={1600} value={data.satTotal || ""} onChange={(e) => onChange({ satTotal: e.target.value === "" ? undefined : parseInt(e.target.value, 10) })} className="mt-1.5 h-12 rounded-xl" />
+        <label className="text-[10px] font-black uppercase tracking-widest text-slate-500">SAT total</label>
+        <Input
+          type="text"
+          inputMode="numeric"
+          value={data.satTotal ?? data.satScore ?? ""}
+          onChange={(e) =>
+            onChange({
+              satTotal: e.target.value === "" ? undefined : parseInt(e.target.value, 10),
+              satScore: e.target.value === "" ? undefined : parseInt(e.target.value, 10),
+              satReadingWriting: undefined,
+              satMath: undefined,
+            })
+          }
+          className="mt-1.5 h-12 rounded-xl"
+          placeholder="400–1600"
+        />
       </div>
       <div className="col-span-1">
-        <label className="text-[10px] font-black uppercase tracking-widest text-slate-500">ACT Score</label>
-        <Input type="number" min={1} max={36} value={data.actComposite || ""} onChange={(e) => onChange({ actComposite: e.target.value === "" ? undefined : parseInt(e.target.value, 10) })} className="mt-1.5 h-12 rounded-xl" />
+        <label className="text-[10px] font-black uppercase tracking-widest text-slate-500">ACT total</label>
+        <Input
+          type="text"
+          inputMode="numeric"
+          value={data.actComposite ?? data.actScore ?? ""}
+          onChange={(e) =>
+            onChange({
+              actComposite: e.target.value === "" ? undefined : parseInt(e.target.value, 10),
+              actScore: e.target.value === "" ? undefined : parseInt(e.target.value, 10),
+            })
+          }
+          className="mt-1.5 h-12 rounded-xl"
+          placeholder="1–36"
+        />
       </div>
       <div className="col-span-2">
         <label className="text-[10px] font-black uppercase tracking-widest text-slate-500">AP Exams Completed</label>

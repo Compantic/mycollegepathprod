@@ -5,6 +5,7 @@ import { generateRoadmap } from "@/lib/domain/roadmap";
 import { getApiErrorStatus } from "@/lib/errors/api";
 import { enforceUserRateLimit } from "@/lib/rateLimit/server";
 import { logApiError } from "@/lib/logging/api";
+import { BillingError, enforceAndIncrementUsage } from "@/lib/billing/enforce";
 
 export async function POST(req: NextRequest) {
   let userId: string | null = null;
@@ -14,6 +15,8 @@ export async function POST(req: NextRequest) {
       return NextResponse.json({ error: "Unauthorized" }, { status: 401 });
     }
     userId = user.uid;
+
+    await enforceAndIncrementUsage(user.uid, "roadmapGenerate");
 
     await enforceUserRateLimit({
       userId: user.uid,
@@ -30,6 +33,9 @@ export async function POST(req: NextRequest) {
 
     return NextResponse.json({ roadmapId, roadmap });
   } catch (err) {
+    if (err instanceof BillingError) {
+      return NextResponse.json({ error: err.message, code: err.code }, { status: err.status });
+    }
     logApiError("roadmap.generate", { userId }, err);
     const status = getApiErrorStatus(err);
     if (status === 429) {

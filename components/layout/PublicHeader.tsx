@@ -9,7 +9,7 @@ import { cn } from "@/lib/utils";
 const navItems = [
   { href: "/#how-it-works", label: "Features", icon: Zap },
   { href: "/#how-it-works", label: "How It Works", icon: Sparkles },
-  { href: "/#pricing", label: "Pricing", icon: CreditCard },
+  { href: "/pricing", label: "Pricing", icon: CreditCard },
 ];
 
 export function PublicHeader() {
@@ -56,7 +56,7 @@ export function PublicHeader() {
             ))}
           </nav>
           <div className="flex items-center gap-2 sm:gap-3 shrink-0">
-            <Link href="/login" className="inline-flex">
+            <Link href="/signin" className="inline-flex">
               <Button
                 variant="ghost"
                 size="sm"

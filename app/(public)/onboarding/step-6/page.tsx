@@ -4,7 +4,7 @@ import { Suspense, useState, useEffect } from "react";
 import { useRouter, useSearchParams } from "next/navigation";
 import { getOnboardingDraft } from "@/lib/onboarding/storage";
 import type { OnboardingAnswers, GradeLevel } from "@/lib/onboarding/schema";
-import { ageFromDateOfBirth, formatDateOfBirth } from "@/lib/onboarding/utils";
+import { ageFromBirthYear, birthYearFromDraft, formatBirthYear } from "@/lib/onboarding/utils";
 import { STEP_CONFIG } from "@/lib/onboarding/stepConfig";
 import { OnboardingStepCard } from "@/components/onboarding/OnboardingStepCard";
 import { Button } from "@/components/ui/button";
@@ -92,11 +92,15 @@ function OnboardingStep6Content() {
           {(answers.firstName || answers.lastName) && (
             <SummaryRow icon={<User className="h-4 w-4" />} label="Name" value={[answers.firstName, answers.lastName].filter(Boolean).join(" ")} />
           )}
-          {answers.dateOfBirth && (
+          {birthYearFromDraft(answers) != null && (
             <SummaryRow
               icon={<CalendarDays className="h-4 w-4" />}
-              label="Date of birth"
-              value={`${formatDateOfBirth(answers.dateOfBirth)}${ageFromDateOfBirth(answers.dateOfBirth) != null ? ` (Age: ${ageFromDateOfBirth(answers.dateOfBirth)} years)` : ""}`}
+              label="Birth year"
+              value={(() => {
+                const y = birthYearFromDraft(answers)!;
+                const age = ageFromBirthYear(y);
+                return `${formatBirthYear(y)}${age != null ? ` (Approx. age: ${age} years)` : ""}`;
+              })()}
             />
           )}
           {answers.gender && (

@@ -5,7 +5,7 @@ import { CollegeMatchingView } from "@/components/matching/CollegeMatchingView";
 
 export default async function DocumentsPage() {
   const user = await getSessionUserFromCookies();
-  if (!user) redirect("/login?from=/app/documents");
+  if (!user) redirect("/signin?from=/app/documents");
 
   const [profile, onboarding] = await Promise.all([
     getStudentProfileForServer(user.uid),

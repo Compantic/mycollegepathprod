@@ -9,7 +9,7 @@ export default function MatchingPage() {
 
 async function MatchingContent() {
   const user = await getSessionUserFromCookies();
-  if (!user) redirect("/login?from=/app/matching");
+  if (!user) redirect("/signin?from=/app/matching");
 
   const [profile, onboarding] = await Promise.all([
     getStudentProfileForServer(user.uid),

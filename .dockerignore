@@ -37,6 +37,14 @@ pnpm-debug.log*
 coverage
 .nyc_output
 
+# Firebase functions (not needed in Next.js image)
+functions
+
+# Docs / reports / local HTML artifacts (not needed in runtime image)
+docs
+staging*.html
+*.md
+
 # Local / cache
 .cache
 .turbo

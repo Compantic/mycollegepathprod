@@ -1,10 +1,11 @@
 import { StylesheetLinks } from "@/components/StylesheetLinks";
 
 /**
- * Public routes should stay static where possible and always emit stylesheet links.
- * In some standalone streaming responses, root <head> tags are omitted.
+ * Some standalone/static builds can emit a fragment-like HTML shell for public pages
+ * (starts with scripts instead of <!DOCTYPE><html>), which breaks CSS boot in Safari/CDN paths.
+ * Force dynamic rendering so public routes always stream a full document shell.
  */
-export const dynamic = "force-static";
+export const dynamic = "force-dynamic";
 
 export default function PublicLayout({
   children,

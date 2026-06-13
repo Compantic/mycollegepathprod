@@ -5,7 +5,7 @@ import { AIScorePageContent } from "@/components/ai-score/AIScorePageContent";
 
 export default async function AiScorePage() {
   const user = await getSessionUserFromCookies();
-  if (!user) redirect("/login?from=/app/ai-score");
+  if (!user) redirect("/signin?from=/app/ai-score");
 
   const current = await getAiScoreForServer(user.uid);
 

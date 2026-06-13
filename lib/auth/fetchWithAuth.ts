@@ -4,7 +4,7 @@ import { auth } from "@/lib/firebase/client";
 
 /**
  * Fetch with Firebase ID token. On 401, refreshes the token, updates the session cookie,
- * and retries once. If still 401, redirects to /login?from=<current path>.
+ * and retries once. If still 401, redirects to /signin?from=<current path>.
  * Use for API calls that require authentication so token expiry is handled in one place.
  */
 export async function fetchWithAuth(
@@ -34,7 +34,7 @@ export async function fetchWithAuth(
   if (res.status === 401 && typeof window !== "undefined") {
     const from = encodeURIComponent(window.location.pathname + window.location.search);
     setTimeout(() => {
-      window.location.href = `/login?from=${from}`;
+      window.location.href = `/signin?from=${from}`;
     }, 150);
   }
   return res;

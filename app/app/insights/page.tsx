@@ -4,7 +4,7 @@ import { InsightsTimelineContent } from "@/components/insights/InsightsTimelineC
 
 export default async function InsightsPage() {
   const user = await getSessionUserFromCookies();
-  if (!user) redirect("/login?from=/app/insights");
+  if (!user) redirect("/signin?from=/app/insights");
 
   return <InsightsTimelineContent />;
 }

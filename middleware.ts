@@ -2,7 +2,16 @@ import { NextResponse } from "next/server";
 import type { NextRequest } from "next/server";
 
 const APP_PREFIX = "/app";
-const PUBLIC_EXACT_PATHS = new Set(["/", "/signin", "/terms", "/privacy", "/cookies", "/icon.png"]);
+const PUBLIC_EXACT_PATHS = new Set([
+  "/",
+  "/pricing",
+  "/signin",
+  "/terms",
+  "/privacy",
+  "/cookies",
+  "/icon.png",
+]);
+const CANONICAL_HOST = "mycollegepath.ai";
 const PUBLIC_PREFIX_PATHS = ["/onboarding/"];
 
 function isAppRoute(pathname: string): boolean {
@@ -48,6 +57,12 @@ function hasValidSessionShapeAndExpiry(token: string | undefined): boolean {
 
 export function middleware(req: NextRequest) {
   const { pathname, searchParams } = req.nextUrl;
+
+  const host = req.headers.get("host")?.split(":")[0]?.toLowerCase();
+  if (host === `www.${CANONICAL_HOST}`) {
+    const dest = new URL(req.nextUrl.pathname + req.nextUrl.search, "https://mycollegepath.ai");
+    return NextResponse.redirect(dest, 308);
+  }
 
   // Skip API, static, and assets
   if (pathname.startsWith("/api") || pathname.startsWith("/_next") || pathname.includes(".")) {

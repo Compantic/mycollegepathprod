@@ -14,6 +14,7 @@ import {
 } from "@/lib/firebase/firestore";
 import { useToastOptional } from "@/components/ui/toast";
 import { markFirstTenStepDone } from "@/lib/activation/firstTen";
+import Link from "next/link";
 
 const CONSULTANT_NAME = "Admissions Consultant";
 const LOCAL_BACKUP_KEY = (uid: string) => `chatLocalBackup_${uid}`;
@@ -69,6 +70,7 @@ export function ChatLayout() {
   const reduceMotion = useReducedMotion();
   const itemVariants = useItemVariants(reduceMotion);
   const { toast } = useToastOptional();
+  const [showUpgradeCta, setShowUpgradeCta] = useState(false);
   const [userId, setUserId] = useState<string | null>(null);
   const [sessionsLoading, setSessionsLoading] = useState(true);
   const [conversations, setConversations] = useState<
@@ -241,11 +243,19 @@ export function ChatLayout() {
           messages: newMessagesAfterUser.map((m) => ({ role: m.role, content: m.content })),
         }),
       });
-      let data: { content?: string; error?: string } = {};
+      let data: { content?: string; error?: string; code?: string } = {};
       try {
         data = await res.json();
       } catch {
         data = { error: "Invalid response from server." };
+      }
+      if (res.status === 402) {
+        setShowUpgradeCta(true);
+        toast({
+          title: "Upgrade required",
+          description: data.error || "Upgrade or wait for renewal to continue.",
+          variant: "error",
+        });
       }
       const errorMsg = typeof data?.error === "string" ? data.error : "";
       const content = res.ok
@@ -598,6 +608,20 @@ export function ChatLayout() {
           onSubmit={handleSubmit}
           className="relative z-10 border-t border-slate-200/80 bg-white/90 p-4 backdrop-blur-md"
         >
+          {showUpgradeCta ? (
+            <div className="mb-3 flex items-center justify-between gap-3 rounded-2xl border border-amber-200 bg-amber-50/70 px-4 py-3 text-sm">
+              <div className="min-w-0">
+                <p className="font-bold text-amber-950">Upgrade required</p>
+                <p className="text-xs text-amber-900/80">You reached your plan limit. Upgrade to continue.</p>
+              </div>
+              <Link
+                href="/app/billing"
+                className="shrink-0 rounded-xl bg-slate-900 px-3 py-2 text-xs font-bold text-white"
+              >
+                Upgrade
+              </Link>
+            </div>
+          ) : null}
           <div className="flex items-end gap-2 rounded-2xl border-2 border-slate-200/90 bg-white px-3 py-2 shadow-sm transition-all focus-within:border-primary-400 focus-within:shadow-md focus-within:ring-2 focus-within:ring-primary-500/15">
             <textarea
               ref={textareaRef}

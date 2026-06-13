@@ -5,7 +5,7 @@ import { MyRoadPageContent } from "@/components/roadmap/MyRoadPageContent";
 
 export default async function MyRoadPage() {
   const user = await getSessionUserFromCookies();
-  if (!user) redirect("/login?from=/app/myroad");
+  if (!user) redirect("/signin?from=/app/myroad");
 
   const data = await getDashboardUserData(user.uid, user.email ?? null);
 

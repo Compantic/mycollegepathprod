@@ -5,6 +5,7 @@ import { getApiErrorStatus } from "@/lib/errors/api";
 import { enforceUserRateLimit } from "@/lib/rateLimit/server";
 import { logApiError } from "@/lib/logging/api";
 import { getSessionUserFromRequest } from "@/lib/firebase/serverAuth";
+import { BillingError, enforceAndIncrementUsage } from "@/lib/billing/enforce";
 
 const bodySchema = z.object({
   essay: z.string().min(50, "Essay should be at least 50 characters."),
@@ -16,6 +17,9 @@ export async function POST(req: NextRequest) {
     if (!user) {
       return NextResponse.json({ error: "Unauthorized" }, { status: 401 });
     }
+
+    await enforceAndIncrementUsage(user.uid, "essayAnalyze");
+
     await enforceUserRateLimit({ userId: user.uid, bucket: "essay_analyze", windowMs: 60_000, maxRequests: 15 });
 
     const json = await req.json().catch(() => ({}));
@@ -66,6 +70,9 @@ ESSAY:
 
     return NextResponse.json(result);
   } catch (err) {
+    if (err instanceof BillingError) {
+      return NextResponse.json({ error: err.message, code: err.code }, { status: err.status });
+    }
     const status = getApiErrorStatus(err);
     logApiError("essays.analyze", {}, err);
     if (status === 429) {

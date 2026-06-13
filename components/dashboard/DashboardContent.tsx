@@ -21,6 +21,7 @@ import {
 import type { DashboardUserData, SavedCollegeItem } from "@/lib/dashboard/getDashboardData";
 import { useFirstTenActivation } from "@/hooks/useFirstTenActivation";
 import { FirstTenActivationCard } from "@/components/dashboard/FirstTenActivationCard";
+import { LeaderboardObfuscatedName } from "@/components/ai-score/LeaderboardObfuscatedName";
 import { cn } from "@/lib/utils";
 
 const PRIORITY_IMAGES: Record<string, string> = {
@@ -137,15 +138,16 @@ export function DashboardContent({ data, readiness, health, aiTip, aiLeaderboard
   const matchingStep = savedColleges.length >= 5 ? 100 : savedColleges.length > 0 ? 40 : 0;
   const essaysStep = health.essays;
 
+  /** Never start at opacity:0 — if animate-to-show does not run (Safari / hydration quirks), the whole main column stays invisible while the shell sidebar still renders. */
   const container = {
-    hidden: { opacity: 0 },
+    hidden: { opacity: 1 },
     show: {
       opacity: 1,
       transition: { staggerChildren: reduceMotion ? 0 : 0.07, delayChildren: reduceMotion ? 0 : 0.06 },
     },
   };
   const item = {
-    hidden: { opacity: 0, y: reduceMotion ? 0 : 16 },
+    hidden: { opacity: 1, y: 0 },
     show: {
       opacity: 1,
       y: 0,
@@ -272,7 +274,7 @@ export function DashboardContent({ data, readiness, health, aiTip, aiLeaderboard
             {top3.map((p, i) => (
               <motion.div
                 key={p.title + i}
-                initial={reduceMotion ? false : { opacity: 0, y: 20 }}
+                initial={{ opacity: 1, y: 0 }}
                 animate={{ opacity: 1, y: 0 }}
                 transition={{ delay: reduceMotion ? 0 : 0.08 + i * 0.06, type: "spring", stiffness: 300, damping: 26 }}
               >
@@ -406,17 +408,21 @@ export function DashboardContent({ data, readiness, health, aiTip, aiLeaderboard
               {aiLeaderboard.length === 0 ? (
                 <p className="text-xs text-slate-600">No leaderboard data yet.</p>
               ) : (
-                aiLeaderboard.slice(0, 8).map((u, i) => (
-                  <div
-                    key={`${u.uid}-${i}`}
-                    className="flex items-center justify-between rounded-xl border border-amber-200/60 bg-white/80 px-3 py-2"
-                  >
-                    <p className="truncate text-xs font-semibold text-slate-800">
-                      #{i + 1} {u.displayName || "Student"}
-                    </p>
-                    <p className="text-xs font-black tabular-nums text-primary-700">{u.score}</p>
-                  </div>
-                ))
+                aiLeaderboard.slice(0, 8).map((u, i) => {
+                  const isSelf = Boolean(data?.uid && u.uid === data.uid);
+                  return (
+                    <div
+                      key={`${u.uid}-${i}`}
+                      className="flex items-center justify-between gap-2 rounded-xl border border-amber-200/60 bg-white/80 px-3 py-2"
+                    >
+                      <p className="flex min-w-0 flex-1 items-center gap-1.5 text-xs font-semibold text-slate-800">
+                        <span className="shrink-0 tabular-nums">#{i + 1}</span>
+                        <LeaderboardObfuscatedName displayName={u.displayName} isSelf={isSelf} />
+                      </p>
+                      <p className="shrink-0 text-xs font-black tabular-nums text-primary-700">{u.score}</p>
+                    </div>
+                  );
+                })
               )}
             </div>
             <Link

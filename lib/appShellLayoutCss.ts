@@ -6,13 +6,14 @@
 export const APP_SHELL_LAYOUT_CSS = `
 .app-shell-root {
   min-height: 100vh;
+  min-height: 100dvh;
   background-color: #f7f9fb;
 }
 @media (min-width: 1024px) {
   .app-shell-root {
-    display: grid;
-    grid-template-columns: 18rem minmax(0, 1fr);
-    align-items: stretch;
+    display: block !important;
+    grid-template-columns: none !important;
+    align-items: initial !important;
   }
 }
 @media (max-width: 1023px) {
@@ -29,6 +30,7 @@ export const APP_SHELL_LAYOUT_CSS = `
   width: 18rem;
   flex-shrink: 0;
   height: 100vh;
+  height: 100dvh;
 }
 @media (max-width: 1023px) {
   .app-shell-sidebar[data-open="false"] {
@@ -45,7 +47,11 @@ export const APP_SHELL_LAYOUT_CSS = `
 @media (min-width: 1024px) {
   .app-shell-sidebar {
     display: flex !important;
-    position: relative;
+    position: fixed !important;
+    top: 0 !important;
+    left: 0 !important;
+    bottom: 0 !important;
+    height: 100dvh !important;
     z-index: 30;
   }
 }
@@ -56,6 +62,13 @@ export const APP_SHELL_LAYOUT_CSS = `
   flex: 1 1 auto;
   display: flex;
   flex-direction: column;
+}
+@media (min-width: 1024px) {
+  .app-shell-main {
+    margin-left: 18rem !important;
+    min-height: 100vh !important;
+    width: calc(100% - 18rem) !important;
+  }
 }
 
 .app-shell-backdrop {
@@ -78,8 +91,35 @@ export const APP_SHELL_LAYOUT_CSS = `
   }
 }
 
-/* If streaming/hydration ever emits a second nav aside as a sibling, keep only the first. */
+/* If streaming/hydration ever emits a second nav aside inside one shell, keep only the first. */
 .app-shell-root > aside.app-shell-sidebar ~ aside.app-shell-sidebar {
   display: none !important;
 }
+
+/*
+ * Safety guard for malformed/nested shells inside main content (observed on some production streams):
+ * flatten nested shell wrapper and neutralize its layout offsets so content cannot shift right.
+ */
+.app-shell-main .app-shell-root {
+  display: contents !important;
+}
+.app-shell-main .app-shell-root > aside.app-shell-sidebar {
+  display: none !important;
+}
+.app-shell-main .app-shell-root > .app-shell-main {
+  margin-left: 0 !important;
+  width: 100% !important;
+  min-height: 0 !important;
+}
+
+@media (max-width: 1023px) {
+  .app-shell-main .app-shell-main header.app-shell-only-mobile {
+    display: none !important;
+  }
+}
+
+.app-shell-main > header.app-shell-only-mobile {
+  justify-content: flex-start;
+}
+
 `.trim();

@@ -4,6 +4,7 @@ import { useEffect, useMemo, useState } from "react";
 import { motion, useReducedMotion } from "framer-motion";
 import { Brain, Sparkles, Trophy, Loader2, BarChart3, ShieldCheck, Target } from "lucide-react";
 import { fetchWithAuth } from "@/lib/auth/fetchWithAuth";
+import { LeaderboardObfuscatedName } from "@/components/ai-score/LeaderboardObfuscatedName";
 import { cn } from "@/lib/utils";
 
 type AiScoreDoc = {
@@ -355,10 +356,11 @@ export function AIScorePageContent({
                       : "border-slate-200/90 bg-white/90 hover:shadow-md"
                   )}
                 >
-                  <div className="min-w-0">
-                    <p className="text-sm font-bold text-slate-900">
-                      #{i + 1} {row.displayName || "Student"}
-                      {isMe ? <span className="ml-1 text-primary-600">(You)</span> : ""}
+                  <div className="min-w-0 flex-1">
+                    <p className="flex flex-wrap items-center gap-1.5 text-sm font-bold text-slate-900">
+                      <span className="shrink-0 tabular-nums">#{i + 1}</span>
+                      <LeaderboardObfuscatedName displayName={row.displayName} isSelf={isMe} />
+                      {isMe ? <span className="text-primary-600">(You)</span> : null}
                     </p>
                     <p className="text-xs font-medium text-slate-500">{new Date(row.evaluatedAt).toLocaleDateString()}</p>
                   </div>

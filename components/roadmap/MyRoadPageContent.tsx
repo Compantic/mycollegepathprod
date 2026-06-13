@@ -236,7 +236,23 @@ export function MyRoadPageContent({ onboardingAnswers, profilePhotoUrl }: MyRoad
     setRoadmap(null);
     try {
       const res = await fetchWithAuth("/api/roadmap/generate", { method: "POST" });
-      if (!res.ok) throw new Error("Failed to generate roadmap");
+      if (!res.ok) {
+        let msg = "Failed to generate roadmap";
+        try {
+          const data = await res.json();
+          msg = data?.error ?? msg;
+        } catch {
+          // ignore
+        }
+        if (res.status === 402) {
+          showToast({
+            title: "Upgrade required",
+            description: msg,
+            variant: "error",
+          });
+        }
+        throw new Error(msg);
+      }
       const data = await res.json();
       const generated: RoadmapResult = data.roadmap ?? data;
       const newId: string = data.roadmapId ?? `roadmap-${Date.now()}`;

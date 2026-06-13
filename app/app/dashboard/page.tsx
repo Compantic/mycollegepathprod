@@ -27,7 +27,7 @@ function getAICoachTip(data: Awaited<ReturnType<typeof getDashboardUserData>>): 
 
 export default async function DashboardPage() {
   const user = await getSessionUserFromCookies();
-  if (!user) redirect("/login?from=/app/dashboard");
+  if (!user) redirect("/signin?from=/app/dashboard");
 
   const data = await getDashboardUserData(user.uid, user.email);
   const readiness = computeApplicationReadiness(data);

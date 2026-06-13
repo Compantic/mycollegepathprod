@@ -2,8 +2,10 @@
 
 import Link from "next/link";
 import { useEffect, useState } from "react";
-import { LogoWordmark } from "@/components/landing/LogoWordmark";
 import type { PublicSignalItem } from "@/lib/marketing/publicMetrics";
+import { LegacyHashRedirect } from "@/components/marketing/LegacyHashRedirect";
+import { LandingMarketingNav } from "@/components/marketing/LandingMarketingNav";
+import { LandingPricingSection } from "@/components/marketing/LandingPricingSection";
 import { cn } from "@/lib/utils";
 import {
   ArrowRight,
@@ -82,80 +84,8 @@ const features = [
   },
 ];
 
-const ANNUAL_DISCOUNT = 0.2;
-
-type LandingPricingPlan = {
-  name: string;
-  monthlyAmount: number;
-  cta: string;
-  featured?: boolean;
-  dark?: boolean;
-  features: string[];
-};
-
-const pricingPlans: LandingPricingPlan[] = [
-  {
-    name: "Free Plan",
-    monthlyAmount: 0,
-    cta: "Try Free",
-    dark: true,
-    features: [
-      "Creating your portfolio",
-      "Identifying College List",
-      "Monthly College Admission Webinar",
-    ],
-  },
-  {
-    name: "Starter",
-    monthlyAmount: 29.99,
-    cta: "Select Starter",
-    featured: true,
-    features: [
-      "Creating your portfolio",
-      "Identifying College List",
-      "Monthly College Admission Webinar",
-      "Using Consultant Chat up to 20 times",
-      "2 Essay Review with feedback",
-      "Revising your college list twice",
-      "Revising your Road Map twice",
-      "Unlimited use of AI Scoring",
-    ],
-  },
-  {
-    name: "Growth",
-    monthlyAmount: 49.99,
-    cta: "Select Growth",
-    features: [
-      "Creating your portfolio",
-      "Identifying College List",
-      "Monthly College Admission Webinar",
-      "Using Consultant Chat up to 40 times",
-      "4 Essay Review with feedback",
-      "Revising your college list up to ten times",
-      "Revising your Road Map up to ten times",
-      "Unlimited use of AI Scoring",
-    ],
-  },
-  {
-    name: "Elite",
-    monthlyAmount: 149.99,
-    cta: "Go Elite",
-    features: [
-      "Creating your portfolio",
-      "Identifying College List",
-      "Monthly College Admission Webinar",
-      "Unlimited use of Consultant Chat",
-      "Unlimited Essay Review with feedback",
-      "Revising your college list unlimited",
-      "Revising your Road Map unlimited",
-      "Unlimited use of AI Scoring",
-    ],
-  },
-];
-
 export default function LandingPageClient() {
   const [signals, setSignals] = useState<PublicSignalItem[]>([]);
-  const [billingPeriod, setBillingPeriod] = useState<"monthly" | "annual">("monthly");
 
   useEffect(() => {
     let cancelled = false;
@@ -174,47 +104,18 @@ export default function LandingPageClient() {
 
   return (
     <div className="min-h-screen bg-[#f7f9fb] text-slate-900">
-      <nav className="fixed inset-x-0 top-0 z-50 border-b border-white/20 bg-slate-50/80 backdrop-blur-md">
-        <div className="mx-auto flex h-16 max-w-7xl items-center justify-between px-4 sm:px-6 lg:h-[4.5rem] lg:px-8">
-          <Link
-            href="/"
-            className="flex shrink-0 items-center transition-opacity hover:opacity-90"
-            aria-label="MyCollegePath home"
-          >
-            <LogoWordmark className="h-12 w-auto sm:h-14 lg:h-16" />
-          </Link>
-          <div className="hidden items-center gap-6 md:flex">
-            <a href="#how-it-works" className="text-sm font-medium text-slate-600 hover:text-primary-600">Features</a>
-            <a href="#how-it-works" className="text-sm font-medium text-slate-600 hover:text-primary-600">How It Works</a>
-            <a href="/#pricing" className="text-sm font-medium text-slate-600 hover:text-primary-600">Pricing</a>
-            <a href="#trust" className="text-sm font-medium text-slate-600 hover:text-primary-600">Trust &amp; Privacy</a>
-          </div>
-          <div className="flex shrink-0 items-center gap-2 sm:gap-3">
-            <Link
-              href="/login"
-              className="rounded-full border border-slate-300 bg-white px-3 py-2 text-sm font-semibold text-slate-800 shadow-sm transition hover:bg-slate-50 sm:px-4"
-            >
-              Log in
-            </Link>
-            <Link
-              href="/onboarding/step-1"
-              className="rounded-full bg-slate-900 px-3 py-2 text-sm font-semibold text-white transition hover:opacity-90 sm:px-4"
-            >
-              Start Free Trial
-            </Link>
-          </div>
-        </div>
-      </nav>
+      <LegacyHashRedirect />
+      <LandingMarketingNav />
 
-      <main className="overflow-x-hidden pt-16 lg:pt-[4.5rem]">
-        <header className="bg-gradient-to-b from-[#0f1b2d] to-[#162236] px-4 pb-20 pt-16 text-white sm:px-6 lg:px-8">
+      <main className="overflow-x-hidden pt-[3.75rem] sm:pt-16 lg:pt-[4.5rem]">
+        <header className="bg-gradient-to-b from-[#0f1b2d] to-[#162236] px-4 pb-20 pt-14 text-white sm:px-6 sm:pt-16 lg:px-8">
           <div className="mx-auto grid max-w-7xl gap-12 lg:grid-cols-2 lg:items-center">
             <div className="space-y-7">
               <div className="inline-flex items-center gap-2 rounded-full border border-white/15 bg-white/10 px-3 py-1 text-xs font-semibold uppercase tracking-wider">
                 <Sparkles className="h-3.5 w-3.5 text-amber-300" />
                 Live platform activity
               </div>
-              <h1 className="text-4xl font-semibold leading-tight sm:text-6xl">
+              <h1 className="text-[1.65rem] font-semibold leading-[1.15] sm:text-5xl sm:leading-tight lg:text-6xl">
                 Your College Counselor. Available 24/7.
                 <span className="block italic text-amber-300">Completely Private.</span>
               </h1>
@@ -231,7 +132,7 @@ export default function LandingPageClient() {
                   <ArrowRight className="h-4 w-4" />
                 </Link>
                 <Link
-                  href="/#pricing"
+                  href="/pricing"
                   className="rounded-xl border border-white/30 px-7 py-3.5 text-base font-semibold text-white hover:bg-white/10"
                 >
                   See Pricing
@@ -331,7 +232,7 @@ export default function LandingPageClient() {
               We provide exclusive pricing so high-quality college guidance stays accessible.
             </p>
             <Link
-              href="/#pricing"
+              href="/pricing"
               className="mt-8 inline-flex items-center gap-2 rounded-xl bg-amber-300 px-7 py-3.5 font-bold text-slate-900 hover:opacity-90"
             >
               Claim Service Discount
@@ -394,185 +295,7 @@ export default function LandingPageClient() {
           </div>
         </section>
 
-        <section
-          id="pricing"
-          className="scroll-mt-24 bg-gradient-to-b from-slate-50 via-slate-100/70 to-slate-50 px-4 py-24 sm:px-6 lg:px-8"
-        >
-          <div className="mx-auto max-w-7xl xl:max-w-[92rem]">
-            <div className="mb-10 text-center">
-              <h2 className="text-3xl font-semibold tracking-tight text-slate-900 sm:text-4xl">Investment in Your Future</h2>
-              <p className="mx-auto mt-3 max-w-xl text-slate-600">
-                Traditional counseling can exceed $6,500. Choose what fits you.
-              </p>
-            </div>
-            <div className="mb-12 flex flex-col items-center justify-center gap-4 sm:flex-row sm:flex-wrap">
-              <span className="text-sm font-medium text-slate-500">Billing</span>
-              <div
-                className="inline-flex rounded-2xl border border-slate-200/80 bg-white p-1 shadow-sm ring-1 ring-slate-900/5"
-                role="group"
-                aria-label="Billing period"
-              >
-                <button
-                  type="button"
-                  onClick={() => setBillingPeriod("monthly")}
-                  className={cn(
-                    "rounded-xl px-5 py-2.5 text-sm font-semibold transition-all",
-                    billingPeriod === "monthly"
-                      ? "bg-slate-900 text-white shadow-md"
-                      : "text-slate-600 hover:bg-slate-50"
-                  )}
-                >
-                  Monthly
-                </button>
-                <button
-                  type="button"
-                  onClick={() => setBillingPeriod("annual")}
-                  className={cn(
-                    "rounded-xl px-5 py-2.5 text-sm font-semibold transition-all",
-                    billingPeriod === "annual"
-                      ? "bg-slate-900 text-white shadow-md"
-                      : "text-slate-600 hover:bg-slate-50"
-                  )}
-                >
-                  Annual
-                  <span className="ml-2 inline-flex items-center rounded-lg bg-emerald-600 px-2 py-0.5 text-[10px] font-bold uppercase tracking-wide text-white shadow-sm">
-                    −20%
-                  </span>
-                </button>
-              </div>
-              <p className="max-w-md text-center text-xs leading-relaxed text-slate-500 sm:text-left">
-                Yearly billing saves 20% on Starter, Growth, and Elite vs paying monthly for 12 months.
-              </p>
-            </div>
-
-            <div
-              className={cn(
-                "auto-rows-fr gap-5",
-                "max-lg:flex max-lg:-mx-4 max-lg:snap-x max-lg:snap-mandatory max-lg:gap-4 max-lg:overflow-x-auto max-lg:px-4 max-lg:pb-3 max-lg:[-webkit-overflow-scrolling:touch]",
-                "lg:mx-0 lg:grid lg:auto-rows-fr lg:grid-cols-4 lg:gap-5 lg:overflow-visible lg:px-0 lg:pb-0"
-              )}
-            >
-              {pricingPlans.map((plan) => {
-                const fullYearAtMonthly = plan.monthlyAmount * 12;
-                const annualTotal = plan.monthlyAmount > 0 ? fullYearAtMonthly * (1 - ANNUAL_DISCOUNT) : 0;
-                return (
-                  <div
-                    key={plan.name}
-                    className={cn(
-                      "relative flex h-full min-h-0 min-w-0 flex-col overflow-visible rounded-3xl p-6 pt-9 shadow-sm transition-shadow",
-                      "max-lg:min-w-[260px] max-lg:max-w-[min(85vw,300px)] max-lg:flex-shrink-0 max-lg:snap-center",
-                      "lg:min-w-0 lg:max-w-none",
-                      plan.dark
-                        ? "border border-slate-700/60 bg-gradient-to-b from-slate-900 to-slate-950 text-white shadow-slate-900/20"
-                        : "border border-slate-200/90 bg-white/95 shadow-slate-200/40 ring-1 ring-slate-900/[0.04]",
-                      plan.featured &&
-                        "z-[1] border-primary-300/60 shadow-xl shadow-primary-900/10 ring-2 ring-primary-500/15"
-                    )}
-                  >
-                    {plan.featured ? (
-                      <div className="pointer-events-none absolute left-1/2 top-0 z-10 -translate-x-1/2 -translate-y-1/2 whitespace-nowrap rounded-full bg-gradient-to-r from-amber-400 to-amber-500 px-4 py-1.5 text-[10px] font-bold uppercase tracking-[0.12em] text-amber-950 shadow-md">
-                        Most popular
-                      </div>
-                    ) : null}
-
-                    <div className="min-w-0">
-                      <h3 className="text-lg font-bold tracking-tight">{plan.name}</h3>
-                      <div
-                        className={cn(
-                          "mt-3",
-                          plan.monthlyAmount === 0 &&
-                            billingPeriod === "annual" &&
-                            "min-h-[6rem]",
-                          plan.monthlyAmount > 0 &&
-                            billingPeriod === "annual" &&
-                            "min-h-[7.25rem]"
-                        )}
-                      >
-                        {plan.monthlyAmount === 0 ? (
-                          <>
-                            <p className="text-3xl font-bold tabular-nums">
-                              $0
-                              <span className="ml-1.5 text-base font-semibold opacity-80">
-                                {billingPeriod === "annual" ? "forever" : "/mo"}
-                              </span>
-                            </p>
-                            <p className="mt-2 text-xs leading-snug text-slate-400">
-                              {billingPeriod === "annual"
-                                ? "Free tier stays free — annual savings apply to paid plans."
-                                : "No credit card required to explore."}
-                            </p>
-                          </>
-                        ) : billingPeriod === "monthly" ? (
-                          <p className="text-3xl font-bold tabular-nums">
-                            ${plan.monthlyAmount.toFixed(2)}
-                            <span className="ml-1.5 text-base font-semibold text-slate-500">/mo</span>
-                          </p>
-                        ) : (
-                          <div className="space-y-2">
-                            <p className="text-3xl font-bold tabular-nums">
-                              ${annualTotal.toFixed(2)}
-                              <span className="ml-1.5 text-base font-semibold text-slate-500">/yr</span>
-                            </p>
-                            <span
-                              className={cn(
-                                "inline-flex w-fit max-w-full rounded-lg px-2.5 py-1 text-[11px] font-semibold leading-tight text-white shadow-sm",
-                                plan.dark
-                                  ? "bg-emerald-600 ring-1 ring-white/10"
-                                  : "bg-emerald-700 ring-1 ring-emerald-900/10"
-                              )}
-                            >
-                              20% off · billed once yearly
-                            </span>
-                            <p
-                              className={cn(
-                                "text-[11px] leading-snug line-through opacity-75",
-                                plan.dark ? "text-slate-500" : "text-slate-500"
-                              )}
-                            >
-                              ${fullYearAtMonthly.toFixed(2)}/yr at monthly rates
-                            </p>
-                          </div>
-                        )}
-                      </div>
-                    </div>
-
-                    <ul className="mt-5 mb-6 shrink-0 space-y-2.5 text-sm leading-snug text-slate-600">
-                      {plan.features.map((feature) => (
-                        <li key={feature} className="flex gap-2.5">
-                          <CheckCircle2
-                            className={cn(
-                              "mt-0.5 h-4 w-4 shrink-0",
-                              plan.dark ? "text-emerald-400" : "text-emerald-600"
-                            )}
-                            aria-hidden
-                          />
-                          <span className={plan.dark ? "text-slate-200" : "text-slate-700"}>{feature}</span>
-                        </li>
-                      ))}
-                    </ul>
-
-                    <Link
-                      href="/onboarding/step-1"
-                      className={cn(
-                        "mt-auto inline-flex w-full min-w-0 items-center justify-center rounded-2xl px-4 py-3 text-sm font-bold transition-all",
-                        plan.dark &&
-                          "bg-white/12 text-white hover:bg-white/18 focus-visible:outline focus-visible:outline-2 focus-visible:outline-offset-2 focus-visible:outline-white/40",
-                        !plan.dark &&
-                          plan.featured &&
-                          "bg-primary-600 text-white shadow-md shadow-primary-600/25 hover:bg-primary-700",
-                        !plan.dark &&
-                          !plan.featured &&
-                          "border-2 border-slate-200 bg-white text-slate-800 hover:border-primary-300 hover:bg-primary-50/60"
-                      )}
-                    >
-                      {plan.cta}
-                    </Link>
-                  </div>
-                );
-              })}
-            </div>
-          </div>
-        </section>
+        <LandingPricingSection showSectionId />
 
         <section className="bg-white px-4 py-24 sm:px-6 lg:px-8">
           <div className="mx-auto max-w-3xl">
@@ -617,9 +340,9 @@ export default function LandingPageClient() {
               >
                 Get Started for Free
               </Link>
-              <a href="/#pricing" className="rounded-xl border border-white/40 px-8 py-3.5 font-bold hover:bg-white/10">
+              <Link href="/pricing" className="rounded-xl border border-white/40 px-8 py-3.5 font-bold hover:bg-white/10">
                 See Pricing
-              </a>
+              </Link>
             </div>
           </div>
         </section>
@@ -638,7 +361,7 @@ export default function LandingPageClient() {
               <h4 className="text-sm font-bold uppercase tracking-widest text-white">Product</h4>
               <ul className="mt-3 space-y-2 text-sm text-slate-400">
                 <li><a href="#how-it-works" className="hover:text-white">Features</a></li>
-                <li><a href="/#pricing" className="hover:text-white">Pricing</a></li>
+                <li><Link href="/pricing" className="hover:text-white">Pricing</Link></li>
               </ul>
             </div>
             <div>

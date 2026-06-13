@@ -4,7 +4,7 @@ import Link from "next/link";
 
 export default async function DeadlinesPage() {
   const user = await getSessionUserFromCookies();
-  if (!user) redirect("/login?from=/app/deadlines");
+  if (!user) redirect("/signin?from=/app/deadlines");
 
   return (
     <div className="space-y-6">

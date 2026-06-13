@@ -2,8 +2,8 @@
  * After `next build`, merges `.next/static/css/*.css` into `public/compiled-styles.css`.
  * Used when streamed HTML omits <link rel="stylesheet"> (some Docker/Linux builds).
  *
- * On linux/amd64 Docker, Next sometimes emits only vendor chunks here (e.g. react-day-picker)
- * and omits the large Tailwind chunk; we then run `tailwindcss` CLI against `app/globals.css`.
+ * On linux/amd64 Docker, Next sometimes omits `.next/static/css` entirely or emits only
+ * vendor chunks; we then run `tailwindcss` CLI against `app/globals.css`.
  */
 const fs = require("fs");
 const path = require("path");
@@ -17,7 +17,7 @@ const MIN_MERGED_BYTES = 50_000;
 function runTailwindCliFallback() {
   const tmpOut = path.join(os.tmpdir(), `tailwind-compiled-${process.pid}.css`);
   console.warn(
-    "concat-next-css: little CSS under .next/static/css (linux/amd64 quirk). Running: tailwindcss -i app/globals.css",
+    "concat-next-css: running tailwindcss fallback (-i app/globals.css)",
   );
   execSync(`npx tailwindcss -i ./app/globals.css -o "${tmpOut}" --minify`, {
     cwd: process.cwd(),
@@ -33,24 +33,29 @@ function runTailwindCliFallback() {
   return css;
 }
 
-if (!fs.existsSync(cssDir)) {
-  console.error("concat-next-css: missing directory .next/static/css");
-  process.exit(1);
+function readNextCssChunks() {
+  if (!fs.existsSync(cssDir)) {
+    console.warn("concat-next-css: .next/static/css not found (using tailwind fallback)");
+    return "";
+  }
+
+  const files = fs.readdirSync(cssDir).filter((f) => f.endsWith(".css")).sort();
+  if (files.length === 0) {
+    console.warn("concat-next-css: no .css files under .next/static/css (using tailwind fallback)");
+    return "";
+  }
+
+  let combined = "";
+  for (const f of files) {
+    const p = path.join(cssDir, f);
+    const bytes = fs.readFileSync(p, "utf8");
+    console.log(`concat-next-css: ${f} (${bytes.length} bytes)`);
+    combined += (combined ? "\n" : "") + bytes;
+  }
+  return combined;
 }
 
-const files = fs.readdirSync(cssDir).filter((f) => f.endsWith(".css")).sort();
-if (files.length === 0) {
-  console.error("concat-next-css: no .css files under .next/static/css");
-  process.exit(1);
-}
-
-let combined = "";
-for (const f of files) {
-  const p = path.join(cssDir, f);
-  const bytes = fs.readFileSync(p, "utf8");
-  console.log(`concat-next-css: ${f} (${bytes.length} bytes)`);
-  combined += (combined ? "\n" : "") + bytes;
-}
+let combined = readNextCssChunks();
 
 if (combined.length < MIN_MERGED_BYTES) {
   const tw = runTailwindCliFallback();

@@ -21,6 +21,12 @@ export const scorecardCollegeQuerySchema = z.object({
   id: z.coerce.number().int().positive("Invalid id"),
 });
 
+export const stripeCheckoutBodySchema = z.object({
+  plan: z.enum(["starter", "growth", "elite"]),
+  billingPeriod: z.enum(["monthly", "yearly"]),
+});
+
 export type SessionPostBody = z.infer<typeof sessionPostBodySchema>;
 export type ChatPostBody = z.infer<typeof chatPostBodySchema>;
 export type ScorecardCollegeQuery = z.infer<typeof scorecardCollegeQuerySchema>;
+export type StripeCheckoutBody = z.infer<typeof stripeCheckoutBodySchema>;

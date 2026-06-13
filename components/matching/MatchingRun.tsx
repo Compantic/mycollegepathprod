@@ -104,7 +104,19 @@ export function MatchingRun({ basePath = "/app/colleges" }: { basePath?: string 
       const res = await fetchWithAuth("/api/matching/run", { method: "POST" });
       const data = await res.json();
       if (!res.ok) {
-        const message = res.status === 401 ? "Please sign in to run matching." : (data.error ?? "Matching failed");
+        const message =
+          res.status === 402
+            ? (data.error ?? "Upgrade required to run matching.")
+            : res.status === 401
+              ? "Please sign in to run matching."
+              : (data.error ?? "Matching failed");
+        if (res.status === 402) {
+          toast({
+            title: "Upgrade required",
+            description: message,
+            variant: "error",
+          });
+        }
         throw new Error(message);
       }
       const newRunId: string = data.runId ?? `run-${Date.now()}`;
