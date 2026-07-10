@@ -16,10 +16,12 @@ export const PLAN_ENTITLEMENTS: Record<BillingPlan, PlanEntitlements> = {
       chat: false,
       essayAnalyze: false,
       matchingRun: false,
-      roadmapGenerate: false,
+      roadmapGenerate: true,
       aiScore: false,
     },
-    monthlyLimits: {},
+    monthlyLimits: {
+      roadmapGenerate: 1,
+    },
   },
   starter: {
     enabled: {

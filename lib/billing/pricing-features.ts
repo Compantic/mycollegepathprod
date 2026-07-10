@@ -12,6 +12,7 @@ export const FREE_PLAN_UI = {
   features: [
     "Creating your portfolio",
     "Identifying College List",
+    "1 personalized roadmap",
     "Monthly College Admission Webinar",
   ],
 } as const;
@@ -25,6 +26,7 @@ export const PAID_PLAN_UI: Record<
     featured: true,
     cta: "Select Starter",
     features: [
+      "7-day free trial (new subscribers)",
       "Creating your portfolio",
       "Identifying College List",
       "Monthly College Admission Webinar",
@@ -39,6 +41,7 @@ export const PAID_PLAN_UI: Record<
     name: "Growth",
     cta: "Select Growth",
     features: [
+      "7-day free trial (new subscribers)",
       "Creating your portfolio",
       "Identifying College List",
       "Monthly College Admission Webinar",
@@ -53,6 +56,7 @@ export const PAID_PLAN_UI: Record<
     name: "Elite",
     cta: "Go Elite",
     features: [
+      "7-day free trial (new subscribers)",
       "Creating your portfolio",
       "Identifying College List",
       "Monthly College Admission Webinar",

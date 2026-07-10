@@ -1,8 +1,11 @@
 import { NextRequest, NextResponse } from "next/server";
 import { adminAuth } from "@/lib/firebase/admin";
 import { sessionPostBodySchema } from "@/lib/validation/api";
-
-const COOKIE_NAME = "__session";
+import {
+  SESSION_COOKIE_NAME,
+  sessionExpiresInMs,
+  sessionMaxAgeSeconds,
+} from "@/lib/auth/sessionCookie";
 
 export async function GET(req: Request) {
   const authHeader = req.headers.get("authorization");
@@ -31,24 +34,33 @@ export async function POST(req: NextRequest) {
       const msg = parsed.error.errors.map((e) => e.message).join("; ") || "token required";
       return NextResponse.json({ error: msg }, { status: 400 });
     }
-    await adminAuth.verifyIdToken(parsed.data.token);
+
+    const idToken = parsed.data.token;
+    // Ensure the ID token is valid before minting a long-lived session cookie.
+    await adminAuth.verifyIdToken(idToken);
+
+    const keepSignedIn = parsed.data.keepSignedIn === true;
+    const expiresIn = sessionExpiresInMs(keepSignedIn);
+    const sessionCookie = await adminAuth.createSessionCookie(idToken, { expiresIn });
+
     const res = NextResponse.json({ ok: true });
-    res.cookies.set(COOKIE_NAME, parsed.data.token, {
+    res.cookies.set(SESSION_COOKIE_NAME, sessionCookie, {
       path: "/",
       httpOnly: true,
       secure: process.env.NODE_ENV === "production",
       sameSite: "lax",
-      maxAge: parsed.data.keepSignedIn ? 60 * 60 * 24 * 30 : 60 * 60 * 24,
+      maxAge: sessionMaxAgeSeconds(keepSignedIn),
     });
     return res;
-  } catch (error: any) {
-    console.error("verifyIdToken error:", error);
-    return NextResponse.json({ error: error?.message || "Invalid token" }, { status: 401 });
+  } catch (error: unknown) {
+    const message = error instanceof Error ? error.message : "Invalid token";
+    console.error("createSessionCookie error:", message);
+    return NextResponse.json({ error: message || "Invalid token" }, { status: 401 });
   }
 }
 
 export async function DELETE() {
   const res = NextResponse.json({ ok: true });
-  res.cookies.set(COOKIE_NAME, "", { path: "/", maxAge: 0 });
+  res.cookies.set(SESSION_COOKIE_NAME, "", { path: "/", maxAge: 0 });
   return res;
 }

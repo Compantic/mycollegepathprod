@@ -54,13 +54,13 @@ const trustCards = [
   },
   {
     title: "Free Roadmap",
-    text: "Generate a phase-based plan with trackable tasks and milestones.",
+    text: "Generate one free personalized roadmap with trackable tasks and milestones.",
     icon: CalendarClock,
     className: "bg-amber-50 border-amber-200 text-amber-900",
   },
   {
     title: "Essay Coaching",
-    text: "Get structured feedback and iteration guidance without ghostwriting.",
+    text: "On paid plans, get structured feedback and iteration guidance without ghostwriting.",
     icon: BookOpen,
     className: "bg-rose-50 border-rose-200 text-rose-900",
   },
@@ -267,7 +267,7 @@ export default function LandingPageClient() {
               <ul className="mt-8 space-y-5 text-slate-600">
                 <li className="flex items-start gap-3">
                   <CheckCircle2 className="mt-0.5 h-5 w-5 text-emerald-600" />
-                  <p><strong className="text-slate-900">Stay Organized:</strong> All supplement deadlines synced to one dashboard.</p>
+                  <p><strong className="text-slate-900">Stay Organized:</strong> Track key cycle deadlines and per-college verify tasks in one place.</p>
                 </li>
                 <li className="flex items-start gap-3">
                   <CheckCircle2 className="mt-0.5 h-5 w-5 text-emerald-600" />
@@ -331,7 +331,8 @@ export default function LandingPageClient() {
           <div className="mx-auto max-w-7xl rounded-3xl bg-gradient-to-r from-primary-600 to-[#101c2e] px-8 py-14 text-center text-white sm:px-12">
             <h2 className="text-4xl font-semibold sm:text-5xl">Secure Your Spot. Save Thousands.</h2>
             <p className="mx-auto mt-4 max-w-2xl text-lg text-white/90">
-              Start your 7-day free trial and build a complete strategy with guided support today.
+              Start free with a portfolio and roadmap, then unlock matching, chat, and essay coaching with a 7-day free
+              trial on any paid plan.
             </p>
             <div className="mt-8 flex flex-wrap justify-center gap-3">
               <Link
@@ -341,7 +342,7 @@ export default function LandingPageClient() {
                 Get Started for Free
               </Link>
               <Link href="/pricing" className="rounded-xl border border-white/40 px-8 py-3.5 font-bold hover:bg-white/10">
-                See Pricing
+                See Plans &amp; Trial
               </Link>
             </div>
           </div>

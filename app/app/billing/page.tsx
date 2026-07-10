@@ -8,6 +8,7 @@ import type { BillingPeriod, BillingPlan } from "@/lib/billing/plans";
 import { ANNUAL_DISCOUNT, FREE_PLAN_UI, PAID_PLAN_UI } from "@/lib/billing/pricing-features";
 import { planRank } from "@/lib/billing/plan-rank";
 import { PLAN_ENTITLEMENTS } from "@/lib/billing/entitlements";
+import { isPaidSubscriptionStatus } from "@/lib/billing/paidStatus";
 import { cn } from "@/lib/utils";
 
 type PaidPlan = Exclude<BillingPlan, "free">;
@@ -57,32 +58,44 @@ function checkoutActionLabel(args: {
   return { label: "Continue", disabled: false };
 }
 
+type BillingMe = {
+  plan: BillingPlan;
+  status: string | null;
+  billingPeriod: BillingPeriod | null;
+  currentPeriodEnd: string | null;
+  cancelAtPeriodEnd?: boolean;
+  hasBillingCustomer?: boolean;
+  month: string;
+  limits: Record<string, number | undefined>;
+  used: Record<string, number>;
+};
+
 export default function BillingPage() {
   const [loadingKey, setLoadingKey] = useState<string | null>(null);
+  const [portalLoading, setPortalLoading] = useState(false);
   const [refreshing, setRefreshing] = useState(false);
   const [error, setError] = useState<string | null>(null);
+  const [notice, setNotice] = useState<string | null>(null);
   const [catalog, setCatalog] = useState<BillingCatalogResponse | null>(null);
   const [catalogError, setCatalogError] = useState<string | null>(null);
   const [viewPeriod, setViewPeriod] = useState<BillingPeriod>("monthly");
-  const [me, setMe] = useState<{
-    plan: BillingPlan;
-    status: string | null;
-    billingPeriod: BillingPeriod | null;
-    currentPeriodEnd: string | null;
-    month: string;
-    limits: Record<string, number | undefined>;
-    used: Record<string, number>;
-  } | null>(null);
+  const [me, setMe] = useState<BillingMe | null>(null);
+
+  async function loadMe() {
+    const meRes = await fetch("/api/billing/me", { credentials: "include" });
+    if (meRes.ok) setMe(await meRes.json());
+  }
 
   async function refreshPlanFromStripe() {
     setRefreshing(true);
     setError(null);
+    setNotice(null);
     try {
       const res = await fetch("/api/billing/refresh", { method: "POST", credentials: "include" });
       const data = (await res.json()) as { plan?: string; status?: string; error?: string };
       if (!res.ok) throw new Error(data.error || "Could not refresh plan");
-      const meRes = await fetch("/api/billing/me", { credentials: "include" });
-      if (meRes.ok) setMe(await meRes.json());
+      await loadMe();
+      setNotice("Plan synced from Stripe.");
     } catch (e) {
       setError(e instanceof Error ? e.message : "Could not refresh plan");
     } finally {
@@ -90,18 +103,51 @@ export default function BillingPage() {
     }
   }
 
+  async function openBillingPortal() {
+    setPortalLoading(true);
+    setError(null);
+    setNotice(null);
+    try {
+      const res = await fetch("/api/stripe/portal", { method: "POST", credentials: "include" });
+      const data = (await res.json()) as { url?: string; error?: string };
+      if (!res.ok || !data.url) throw new Error(data.error || "Could not open billing portal");
+      window.location.href = data.url;
+    } catch (e) {
+      setError(e instanceof Error ? e.message : "Could not open billing portal");
+      setPortalLoading(false);
+    }
+  }
+
   async function startCheckout(plan: PaidPlan, billingPeriod: BillingPeriod) {
     const key = `${plan}:${billingPeriod}`;
     setLoadingKey(key);
     setError(null);
+    setNotice(null);
     try {
       const res = await fetch("/api/stripe/checkout", {
         method: "POST",
         headers: { "content-type": "application/json" },
         body: JSON.stringify({ plan, billingPeriod }),
+        credentials: "include",
       });
-      const data = (await res.json()) as { url?: string; error?: string };
-      if (!res.ok || !data.url) throw new Error(data.error || "Checkout failed");
+      const data = (await res.json()) as {
+        url?: string;
+        updated?: boolean;
+        plan?: string;
+        error?: string;
+      };
+      if (!res.ok) throw new Error(data.error || "Checkout failed");
+
+      if (data.updated) {
+        await loadMe();
+        setNotice(
+          `Your subscription was updated to ${data.plan ?? plan} (${billingPeriod}). Proration may appear on your next Stripe invoice.`
+        );
+        setLoadingKey(null);
+        return;
+      }
+
+      if (!data.url) throw new Error(data.error || "Checkout failed");
       window.location.href = data.url;
     } catch (e) {
       setError(e instanceof Error ? e.message : "Checkout failed");
@@ -147,9 +193,9 @@ export default function BillingPage() {
 
   const currentPlan = me?.plan ?? "free";
   const ent = PLAN_ENTITLEMENTS[currentPlan];
-  const subscriptionActive = Boolean(
-    me?.status && (me.status === "active" || me.status === "trialing")
-  );
+  const subscriptionActive = isPaidSubscriptionStatus(me?.status);
+  const isPastDue = me?.status === "past_due";
+  const canManageBilling = Boolean(me?.hasBillingCustomer);
 
   const usageRows: Array<{ key: "chat" | "essayAnalyze" | "matchingRun" | "roadmapGenerate"; label: string }> = [
     { key: "chat", label: "Consultant chat questions" },
@@ -183,6 +229,30 @@ export default function BillingPage() {
             {error}
           </p>
         ) : null}
+        {notice ? (
+          <p className="mt-4 rounded-xl border border-emerald-400/40 bg-emerald-950/40 px-4 py-2 text-sm font-medium text-emerald-100">
+            {notice}
+          </p>
+        ) : null}
+        {isPastDue ? (
+          <div className="mt-4 rounded-xl border border-amber-400/40 bg-amber-950/40 px-4 py-3 text-sm text-amber-50">
+            <p className="font-semibold">Payment past due</p>
+            <p className="mt-1 text-amber-100/90">
+              Update your card in the billing portal to keep your plan. Access stays available while Stripe retries the
+              charge.
+            </p>
+            {canManageBilling ? (
+              <button
+                type="button"
+                onClick={() => void openBillingPortal()}
+                disabled={portalLoading}
+                className="mt-3 inline-flex rounded-xl bg-amber-300 px-4 py-2 text-xs font-bold text-slate-900 hover:bg-amber-200 disabled:opacity-60"
+              >
+                {portalLoading ? "Opening…" : "Update payment method"}
+              </button>
+            ) : null}
+          </div>
+        ) : null}
       </div>
 
       <div className="grid gap-5 lg:grid-cols-2">
@@ -197,9 +267,14 @@ export default function BillingPage() {
               <span className="text-slate-500"> · {me.billingPeriod === "monthly" ? "Monthly" : "Yearly"} billing</span>
             ) : null}
           </p>
+          {me?.cancelAtPeriodEnd ? (
+            <p className="mt-2 text-xs font-medium text-amber-700">
+              Cancellation scheduled — access continues until the end of the current period.
+            </p>
+          ) : null}
           {me?.currentPeriodEnd ? (
             <p className="mt-2 text-xs text-slate-500">
-              Renews:{" "}
+              {me.cancelAtPeriodEnd ? "Ends" : "Renews"}:{" "}
               <span className="font-semibold text-slate-700">
                 {new Date(me.currentPeriodEnd).toLocaleString()}
               </span>
@@ -209,16 +284,28 @@ export default function BillingPage() {
               {subscriptionActive ? "Renewal date will appear after your first invoice syncs." : "You are on the free tier."}
             </p>
           )}
-          {!subscriptionActive ? (
-            <button
-              type="button"
-              onClick={() => void refreshPlanFromStripe()}
-              disabled={refreshing}
-              className="mt-4 inline-flex items-center justify-center rounded-xl border border-slate-200 bg-slate-50 px-4 py-2 text-xs font-semibold text-slate-800 hover:bg-slate-100 disabled:opacity-60"
-            >
-              {refreshing ? "Syncing from Stripe…" : "I paid — refresh my plan"}
-            </button>
-          ) : null}
+          <div className="mt-4 flex flex-wrap gap-2">
+            {canManageBilling ? (
+              <button
+                type="button"
+                onClick={() => void openBillingPortal()}
+                disabled={portalLoading}
+                className="inline-flex items-center justify-center rounded-xl bg-slate-900 px-4 py-2 text-xs font-semibold text-white hover:bg-slate-800 disabled:opacity-60"
+              >
+                {portalLoading ? "Opening…" : "Manage billing (cancel / card / invoices)"}
+              </button>
+            ) : null}
+            {!subscriptionActive ? (
+              <button
+                type="button"
+                onClick={() => void refreshPlanFromStripe()}
+                disabled={refreshing}
+                className="inline-flex items-center justify-center rounded-xl border border-slate-200 bg-slate-50 px-4 py-2 text-xs font-semibold text-slate-800 hover:bg-slate-100 disabled:opacity-60"
+              >
+                {refreshing ? "Syncing from Stripe…" : "I paid — refresh my plan"}
+              </button>
+            ) : null}
+          </div>
         </div>
 
         <div className="rounded-3xl border border-slate-200/90 bg-white p-6 shadow-sm ring-1 ring-slate-900/[0.04]">
@@ -248,6 +335,9 @@ export default function BillingPage() {
           <h2 className="text-2xl font-semibold tracking-tight text-slate-900 sm:text-3xl">Choose your plan</h2>
           <p className="mt-2 text-sm text-slate-600">
             Prices match the homepage and are loaded from Stripe ({catalogError ? "unavailable" : "live catalog"}).
+            {subscriptionActive
+              ? " Upgrades and downgrades update your current subscription — they do not open a second Checkout."
+              : null}
           </p>
         </div>
 
@@ -398,7 +488,7 @@ export default function BillingPage() {
                     disabled && "border-slate-200 bg-slate-100 text-slate-500 shadow-none hover:bg-slate-100"
                   )}
                 >
-                  {loading ? "Redirecting…" : label}
+                  {loading ? (subscriptionActive ? "Updating…" : "Redirecting…") : label}
                 </button>
               </div>
             );

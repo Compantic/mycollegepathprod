@@ -1,8 +1,9 @@
 /**
  * Admissions Coach chat: single completion with user context, no tools.
- * Server-only. No essay rewriting; only admissions guidance.
+ * Uses the shared OpenAI model fallback chain so a missing/unsupported primary model
+ * does not hard-fail paying users.
  */
-import { getClient } from "./openai";
+import { chatCompletion } from "./openai";
 import type { ChatContext, MentionedCollege } from "./chatContext";
 import { buildSystemPrompt } from "./chatContext";
 import type { OpenAI } from "openai";
@@ -13,7 +14,6 @@ export async function runAdmissionsCoachWithContext(
   mentionedColleges: MentionedCollege[],
   options?: { model?: string }
 ): Promise<{ content: string }> {
-  const openai = getClient();
   const systemContent = buildSystemPrompt(ctx, mentionedColleges);
 
   const allMessages: OpenAI.Chat.ChatCompletionMessageParam[] = [
@@ -21,13 +21,14 @@ export async function runAdmissionsCoachWithContext(
     ...messages,
   ];
 
-  const response = await openai.chat.completions.create({
-    model: options?.model ?? process.env.OPENAI_CHAT_MODEL ?? "gpt-5.5",
-    messages: allMessages,
+  const message = await chatCompletion(allMessages, {
+    model: options?.model,
+    temperature: 0.7,
     max_completion_tokens: 900,
   });
 
-  const choice = response.choices?.[0];
-  const content = choice?.message?.content?.trim() ?? "I couldn't generate a response. Please try again.";
+  const content =
+    message?.content?.trim() ||
+    "I couldn't generate a response. Please try again.";
   return { content };
 }

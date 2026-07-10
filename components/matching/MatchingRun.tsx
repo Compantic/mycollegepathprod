@@ -52,7 +52,9 @@ export function MatchingRun({ basePath = "/app/colleges" }: { basePath?: string 
           throw new Error(data.error ?? "Failed to load matching history");
         }
         if (cancelled) return;
-        const loadedRuns = (data.runs ?? []) as { runId: string; createdAt: string; matches: CollegeMatch[] }[];
+        const loadedRuns = ((data.runs ?? []) as { runId: string; createdAt: string; matches: CollegeMatch[] }[]).filter(
+          (r) => Array.isArray(r.matches) && r.matches.length > 0
+        );
         setRuns(loadedRuns);
         if (!matches.length && loadedRuns.length > 0) {
           setRunId(loadedRuns[0].runId);
@@ -98,18 +100,19 @@ export function MatchingRun({ basePath = "/app/colleges" }: { basePath?: string 
   async function runMatch() {
     setLoading(true);
     setError(null);
-    setMatches([]);
-    setRunId(null);
     try {
       const res = await fetchWithAuth("/api/matching/run", { method: "POST" });
-      const data = await res.json();
+      const data = await res.json().catch(() => ({}));
       if (!res.ok) {
         const message =
           res.status === 402
             ? (data.error ?? "Upgrade required to run matching.")
             : res.status === 401
               ? "Please sign in to run matching."
-              : (data.error ?? "Matching failed");
+              : res.status === 422 || data.code === "no_matches"
+                ? (data.error ??
+                  "No college matches could be generated right now. Please try again — your usage was not charged.")
+                : (data.error ?? "Matching failed");
         if (res.status === 402) {
           toast({
             title: "Upgrade required",
@@ -119,17 +122,29 @@ export function MatchingRun({ basePath = "/app/colleges" }: { basePath?: string 
         }
         throw new Error(message);
       }
+
       const newRunId: string = data.runId ?? `run-${Date.now()}`;
-      const newMatches: CollegeMatch[] = data.matches ?? [];
+      const newMatches: CollegeMatch[] = Array.isArray(data.matches) ? data.matches : [];
+
+      // Defense in depth: never treat an empty list as a successful run.
+      if (newMatches.length === 0) {
+        throw new Error(
+          "No college matches could be generated right now. Please try again — your usage was not charged."
+        );
+      }
+
       setRunId(newRunId);
       setMatches(newMatches);
       setRuns((prev) => [
         { runId: newRunId, createdAt: new Date().toISOString(), matches: newMatches },
-        ...prev,
+        ...prev.filter((r) => r.runId !== newRunId),
       ]);
       markFirstTenStepDone(user?.uid, "matching");
       setProgress(100);
-      toast({ description: "Matches updated.", variant: "success" });
+      toast({
+        description: `Found ${newMatches.length} college match${newMatches.length === 1 ? "" : "es"}.`,
+        variant: "success",
+      });
     } catch (err) {
       const msg = err instanceof Error ? err.message : "Something went wrong.";
       setError(msg);
@@ -240,10 +255,11 @@ export function MatchingRun({ basePath = "/app/colleges" }: { basePath?: string 
                 onChange={(e) => {
                   const id = e.target.value;
                   const selected = runs.find((r) => r.runId === id);
-                  if (selected) {
+                  if (selected && Array.isArray(selected.matches) && selected.matches.length > 0) {
                     setRunId(selected.runId);
-                    setMatches(selected.matches ?? []);
+                    setMatches(selected.matches);
                     setExpandedId(null);
+                    setError(null);
                   }
                 }}
                 className="ml-1 rounded-md border border-slate-300 bg-white px-2 py-1 text-xs text-text-primary shadow-sm focus:outline-none focus:ring-1 focus:ring-primary-500/60"

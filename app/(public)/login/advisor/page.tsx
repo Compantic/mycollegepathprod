@@ -1,5 +1,5 @@
-import { redirect } from "next/navigation";
+import { PartnerLoginUnavailable } from "@/components/auth/PartnerLoginUnavailable";
 
 export default function AdvisorLoginPage() {
-  redirect("/signin");
+  return <PartnerLoginUnavailable kind="advisor" />;
 }

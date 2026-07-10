@@ -21,7 +21,7 @@ function normalizeServiceAccount(input: Record<string, unknown>): ServiceAccount
 
 function getServiceAccount(): ServiceAccount | null {
   console.log("Firebase Admin: Checking for credentials...");
-  
+
   // 1) Prefer base64-encoded service account JSON
   const base64 = process.env.FIREBASE_SERVICE_ACCOUNT_BASE64;
   if (base64) {
@@ -55,7 +55,24 @@ function getServiceAccount(): ServiceAccount | null {
     }
   }
 
-  // 3) Local development fallback: key file in project root
+  // 3) Individual env vars (common on Vercel / Azure Container Apps)
+  const projectId = process.env.FIREBASE_ADMIN_PROJECT_ID?.trim();
+  const clientEmail = process.env.FIREBASE_ADMIN_CLIENT_EMAIL?.trim();
+  const privateKey = process.env.FIREBASE_ADMIN_PRIVATE_KEY?.trim();
+  if (projectId && clientEmail && privateKey) {
+    const normalized = normalizeServiceAccount({
+      projectId,
+      clientEmail,
+      privateKey,
+    });
+    if (normalized) {
+      console.log("Firebase Admin: Found FIREBASE_ADMIN_PROJECT_ID / CLIENT_EMAIL / PRIVATE_KEY");
+      return normalized;
+    }
+    console.error("Firebase Admin: FIREBASE_ADMIN_* vars are present but invalid");
+  }
+
+  // 4) Local development fallback: key file in project root
   if (process.env.NODE_ENV === "production") {
     console.warn("Firebase Admin: No env-based service account found in production.");
     return null;

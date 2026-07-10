@@ -17,6 +17,7 @@ import {
   Trophy,
   ArrowRight,
   GraduationCap,
+  CalendarClock,
 } from "lucide-react";
 import type { DashboardUserData, SavedCollegeItem } from "@/lib/dashboard/getDashboardData";
 import { useFirstTenActivation } from "@/hooks/useFirstTenActivation";
@@ -55,6 +56,7 @@ export interface DashboardContentProps {
   health: { essays: number; collegeList: number; documents: number };
   aiTip: string;
   aiLeaderboard?: { uid: string; displayName: string; score: number }[];
+  upcomingDeadlines?: { id: string; title: string; dueDate: string; href: string }[];
 }
 
 function tagStyles(tag: string) {
@@ -72,7 +74,14 @@ function tagStyles(tag: string) {
   }
 }
 
-export function DashboardContent({ data, readiness, health, aiTip, aiLeaderboard = [] }: DashboardContentProps) {
+export function DashboardContent({
+  data,
+  readiness,
+  health,
+  aiTip,
+  aiLeaderboard = [],
+  upcomingDeadlines = [],
+}: DashboardContentProps) {
   const reduceMotion = useReducedMotion();
   const firstName = data?.firstName ?? "there";
   const savedColleges = data?.savedColleges ?? [];
@@ -233,6 +242,37 @@ export function DashboardContent({ data, readiness, health, aiTip, aiLeaderboard
           </motion.section>
         )}
 
+        {upcomingDeadlines.length > 0 && (
+          <motion.section variants={item} className="rounded-3xl border border-slate-200/80 bg-white/95 p-6 shadow-lg sm:p-7">
+            <div className="flex flex-wrap items-center justify-between gap-3">
+              <h2 className="flex items-center gap-2 text-lg font-semibold text-slate-900">
+                <CalendarClock className="h-5 w-5 text-primary-600" aria-hidden />
+                Upcoming deadlines
+              </h2>
+              <Link href="/app/deadlines" className="text-sm font-bold text-primary-700 hover:text-primary-600 hover:underline">
+                View all
+              </Link>
+            </div>
+            <ul className="mt-4 space-y-3">
+              {upcomingDeadlines.map((d) => (
+                <li key={d.id}>
+                  <Link
+                    href={d.href}
+                    className="flex items-center justify-between gap-3 rounded-2xl border border-slate-100 bg-slate-50/80 px-4 py-3 transition hover:border-primary-200 hover:bg-primary-50/40"
+                  >
+                    <span className="min-w-0 truncate text-sm font-semibold text-slate-800">{d.title}</span>
+                    <span className="shrink-0 text-xs font-bold uppercase tracking-wide text-slate-500">
+                      {new Date(d.dueDate + "T12:00:00").toLocaleDateString("en-US", {
+                        month: "short",
+                        day: "numeric",
+                      })}
+                    </span>
+                  </Link>
+                </li>
+              ))}
+            </ul>
+          </motion.section>
+        )}
 
         <motion.section variants={item} className="rounded-3xl border border-slate-200/80 bg-white/95 p-6 shadow-lg sm:p-7">
           <div className="flex flex-wrap items-center justify-between gap-3">

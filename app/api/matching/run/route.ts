@@ -10,10 +10,12 @@ import type { StudentCriteria } from "@/lib/matching/types";
 import { getApiErrorStatus } from "@/lib/errors/api";
 import { enforceUserRateLimit } from "@/lib/rateLimit/server";
 import { logApiError } from "@/lib/logging/api";
-import { BillingError, enforceAndIncrementUsage } from "@/lib/billing/enforce";
+import { BillingError, releaseFeatureUsage, reserveFeatureUsage } from "@/lib/billing/enforce";
 
 export async function POST(req: NextRequest) {
   let userId: string | null = null;
+  let reserved = false;
+
   try {
     const user = await getSessionUserFromRequest(req);
     if (!user) {
@@ -21,7 +23,8 @@ export async function POST(req: NextRequest) {
     }
     userId = user.uid;
 
-    await enforceAndIncrementUsage(user.uid, "matchingRun");
+    await reserveFeatureUsage(user.uid, "matchingRun");
+    reserved = true;
 
     await enforceUserRateLimit({
       userId: user.uid,
@@ -42,12 +45,28 @@ export async function POST(req: NextRequest) {
     };
 
     const matches = await runMatching(criteria, onboarding);
-    const runId = `run-${Date.now()}-${Math.random().toString(36).slice(2, 10)}`;
 
+    if (!Array.isArray(matches) || matches.length === 0) {
+      await releaseFeatureUsage(user.uid, "matchingRun");
+      reserved = false;
+      return NextResponse.json(
+        {
+          error:
+            "No college matches could be generated right now. Please try again in a moment — your usage was not charged.",
+          code: "no_matches",
+        },
+        { status: 422 }
+      );
+    }
+
+    const runId = `run-${Date.now()}-${Math.random().toString(36).slice(2, 10)}`;
     await saveMatchingRun(user.uid, runId, matches);
 
     return NextResponse.json({ runId, matches });
   } catch (err) {
+    if (reserved && userId) {
+      await releaseFeatureUsage(userId, "matchingRun");
+    }
     if (err instanceof BillingError) {
       return NextResponse.json({ error: err.message, code: err.code }, { status: err.status });
     }

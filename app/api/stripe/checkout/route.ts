@@ -3,6 +3,9 @@ import { getSessionUserFromRequest } from "@/lib/firebase/serverAuth";
 import { getStripe, getStripeMode } from "@/lib/stripe/server";
 import { stripeCheckoutBodySchema } from "@/lib/validation/api";
 import { STRIPE_PRICE_IDS } from "@/lib/billing/plans";
+import { changeExistingSubscription, getStoredSubscription } from "@/lib/billing/changePlan";
+import { PAID_PLAN_TRIAL_DAYS } from "@/lib/billing/trial";
+import { isPaidSubscriptionStatus } from "@/lib/billing/paidStatus";
 
 function getOrigin(req: NextRequest): string {
   const envOrigin = (process.env.NEXT_PUBLIC_APP_URL || process.env.APP_URL || "").trim();
@@ -32,28 +35,61 @@ export async function POST(req: NextRequest) {
   const price = STRIPE_PRICE_IDS[mode][plan][billingPeriod];
   const origin = getOrigin(req);
 
-  const session = await stripe.checkout.sessions.create({
-    mode: "subscription",
-    client_reference_id: user.uid,
-    customer_email: user.email ?? undefined,
-    line_items: [{ price, quantity: 1 }],
-    success_url: `${origin}/app/billing/success?session_id={CHECKOUT_SESSION_ID}`,
-    cancel_url: `${origin}/app/billing`,
-    metadata: {
+  try {
+    // Existing paid subscription → update in place (no second Checkout / no double charge).
+    const changed = await changeExistingSubscription({
+      stripe,
       uid: user.uid,
       plan,
       billingPeriod,
-    },
-    subscription_data: {
+    });
+    if (changed) {
+      return NextResponse.json({
+        updated: true,
+        plan: changed.payload.plan,
+        billingPeriod: changed.payload.billingPeriod,
+        status: changed.payload.status,
+      });
+    }
+
+    const stored = await getStoredSubscription(user.uid);
+    // First-time paid checkout only — never re-grant trial on resubscribe/upgrade paths.
+    const eligibleForTrial =
+      !stored?.stripeSubscriptionId && !isPaidSubscriptionStatus(stored?.status);
+
+    const sessionParams: Parameters<typeof stripe.checkout.sessions.create>[0] = {
+      mode: "subscription",
+      client_reference_id: user.uid,
+      line_items: [{ price, quantity: 1 }],
+      success_url: `${origin}/app/billing/success?session_id={CHECKOUT_SESSION_ID}`,
+      cancel_url: `${origin}/app/billing`,
       metadata: {
         uid: user.uid,
         plan,
         billingPeriod,
       },
-    },
-    allow_promotion_codes: false,
-  });
+      subscription_data: {
+        ...(eligibleForTrial ? { trial_period_days: PAID_PLAN_TRIAL_DAYS } : {}),
+        metadata: {
+          uid: user.uid,
+          plan,
+          billingPeriod,
+        },
+      },
+      allow_promotion_codes: false,
+    };
 
-  return NextResponse.json({ url: session.url });
+    if (stored?.stripeCustomerId?.trim()) {
+      sessionParams.customer = stored.stripeCustomerId.trim();
+    } else if (user.email) {
+      sessionParams.customer_email = user.email;
+    }
+
+    const session = await stripe.checkout.sessions.create(sessionParams);
+    return NextResponse.json({ url: session.url, updated: false });
+  } catch (err) {
+    const message = err instanceof Error ? err.message : "Checkout failed";
+    console.error("[stripe.checkout]", message);
+    return NextResponse.json({ error: message }, { status: 500 });
+  }
 }
-

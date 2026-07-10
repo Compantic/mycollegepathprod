@@ -1,5 +1,7 @@
 import type Stripe from "stripe";
 import { adminDb } from "@/lib/firebase/admin";
+import { resolvePlanFromPriceId } from "@/lib/billing/priceLookup";
+import { isPaidSubscriptionStatus } from "@/lib/billing/paidStatus";
 
 function isoFromUnixSeconds(sec: number | null | undefined): string | null {
   if (!sec) return null;
@@ -12,6 +14,33 @@ export type SubscriptionWriteOverrides = {
   billingPeriod?: string | null;
 };
 
+function resolvePlanFields(
+  sub: Stripe.Subscription,
+  overrides: SubscriptionWriteOverrides
+): { plan: string | null; billingPeriod: string | null } {
+  const fromOverridePlan = overrides.plan ?? null;
+  const fromOverridePeriod = overrides.billingPeriod ?? null;
+  if (fromOverridePlan && fromOverridePeriod) {
+    return { plan: fromOverridePlan, billingPeriod: fromOverridePeriod };
+  }
+
+  const fromMetaPlan = (sub.metadata?.plan ?? null) as string | null;
+  const fromMetaPeriod = (sub.metadata?.billingPeriod ?? null) as string | null;
+  if (fromMetaPlan && fromMetaPeriod) {
+    return {
+      plan: fromOverridePlan ?? fromMetaPlan,
+      billingPeriod: fromOverridePeriod ?? fromMetaPeriod,
+    };
+  }
+
+  const priceId = sub.items.data[0]?.price?.id;
+  const fromPrice = priceId ? resolvePlanFromPriceId(priceId) : null;
+  return {
+    plan: fromOverridePlan ?? fromMetaPlan ?? fromPrice?.plan ?? null,
+    billingPeriod: fromOverridePeriod ?? fromMetaPeriod ?? fromPrice?.billingPeriod ?? null,
+  };
+}
+
 export async function writeSubscriptionFromStripe(
   sub: Stripe.Subscription,
   overrides: SubscriptionWriteOverrides = {}
@@ -21,8 +50,7 @@ export async function writeSubscriptionFromStripe(
     throw new Error("Missing user id on Stripe subscription");
   }
 
-  const plan = (overrides.plan ?? sub.metadata?.plan ?? null) as string | null;
-  const billingPeriod = (overrides.billingPeriod ?? sub.metadata?.billingPeriod ?? null) as string | null;
+  const { plan, billingPeriod } = resolvePlanFields(sub, overrides);
 
   const payload = {
     uid,
@@ -32,8 +60,12 @@ export async function writeSubscriptionFromStripe(
     stripeCustomerId: typeof sub.customer === "string" ? sub.customer : sub.customer?.id ?? null,
     stripeSubscriptionId: sub.id,
     cancelAtPeriodEnd: Boolean(sub.cancel_at_period_end),
-    currentPeriodStart: isoFromUnixSeconds((sub as Stripe.Subscription & { current_period_start?: number }).current_period_start),
-    currentPeriodEnd: isoFromUnixSeconds((sub as Stripe.Subscription & { current_period_end?: number }).current_period_end),
+    currentPeriodStart: isoFromUnixSeconds(
+      (sub as Stripe.Subscription & { current_period_start?: number }).current_period_start
+    ),
+    currentPeriodEnd: isoFromUnixSeconds(
+      (sub as Stripe.Subscription & { current_period_end?: number }).current_period_end
+    ),
     updatedAt: new Date().toISOString(),
   };
 
@@ -65,27 +97,36 @@ export async function syncCheckoutSessionToFirestore(
       ? await stripe.subscriptions.retrieve(session.subscription)
       : session.subscription;
 
-  return writeSubscriptionFromStripe(sub, {
+  const payload = await writeSubscriptionFromStripe(sub, {
     uid,
     plan: session.metadata?.plan ?? null,
     billingPeriod: session.metadata?.billingPeriod ?? null,
   });
+
+  const { cancelOtherSubscriptionsForUid } = await import("@/lib/billing/changePlan");
+  await cancelOtherSubscriptionsForUid(stripe, uid, sub.id);
+
+  return payload;
 }
 
-const ACTIVE_STATUSES = new Set(["active", "trialing", "past_due"]);
-
-/** Pull latest active Stripe subscription for this Firebase uid (recovery after missed webhooks). */
+/** Pull latest paid Stripe subscription for this Firebase uid (recovery after missed webhooks). */
 export async function refreshSubscriptionFromStripeByUid(stripe: Stripe, uid: string) {
   const result = await stripe.subscriptions.search({
     query: `metadata['uid']:'${uid}'`,
     limit: 10,
   });
 
-  const subs = result.data.filter((s) => ACTIVE_STATUSES.has(s.status));
+  const subs = result.data.filter((s) => isPaidSubscriptionStatus(s.status));
   if (!subs.length) {
     throw new Error("No active subscription found in Stripe for your account");
   }
 
   subs.sort((a, b) => (b.created ?? 0) - (a.created ?? 0));
-  return writeSubscriptionFromStripe(subs[0]!, { uid });
+  const primary = subs[0]!;
+  const payload = await writeSubscriptionFromStripe(primary, { uid });
+
+  const { cancelOtherSubscriptionsForUid } = await import("@/lib/billing/changePlan");
+  await cancelOtherSubscriptionsForUid(stripe, uid, primary.id);
+
+  return payload;
 }

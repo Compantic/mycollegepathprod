@@ -492,3 +492,86 @@ export function clearOnboardingDraft(): void {
   if (typeof window === "undefined") return;
   localStorage.removeItem(LOCAL_KEY);
 }
+
+/** True when the draft has enough fields that deleting it would lose real user work. */
+export function isMeaningfulOnboardingDraft(answers: OnboardingAnswers | null | undefined): boolean {
+  if (!answers) return false;
+  if (answers.firstName?.trim() || answers.lastName?.trim()) return true;
+  if (answers.currentHighSchool?.trim()) return true;
+  if (answers.gpa != null || answers.satScore != null || answers.actScore != null) return true;
+  if ((answers.activityTypes?.length ?? 0) > 0) return true;
+  if ((answers.areasOfInterest?.length ?? 0) > 0) return true;
+  if (answers.careerPathWhat?.trim()) return true;
+  return false;
+}
+
+function mergeOnboardingAnswers(base: OnboardingAnswers, overlay: OnboardingAnswers): OnboardingAnswers {
+  const out: OnboardingAnswers = { ...base };
+  const keys = Object.keys(overlay) as (keyof OnboardingAnswers)[];
+  for (const key of keys) {
+    const value = overlay[key];
+    if (value === undefined || value === null) continue;
+    if (typeof value === "string" && !value.trim()) continue;
+    if (Array.isArray(value) && value.length === 0) continue;
+    (out as Record<string, unknown>)[key as string] = value;
+  }
+  return normalizeAcademicAnswers(out);
+}
+
+async function isOnboardingMarkedComplete(uid: string): Promise<boolean> {
+  const snap = await getDoc(doc(db, "users", uid));
+  if (!snap.exists()) return false;
+  return Boolean(snap.data()?.onboardingCompleted);
+}
+
+/**
+ * Safely move a local onboarding draft into Firestore.
+ * Never clears localStorage unless the server write succeeded, or the server already
+ * has a complete profile (stale leftover draft).
+ */
+export async function syncLocalOnboardingDraftToFirestore(uid: string): Promise<"synced" | "cleared_stale" | "skipped"> {
+  const draft = getOnboardingDraft();
+  if (!isMeaningfulOnboardingDraft(draft)) {
+    return "skipped";
+  }
+
+  const existing = await getOnboardingFromFirestore(uid);
+  const completed = await isOnboardingMarkedComplete(uid);
+
+  // Leftover draft after a successful step-7 persist (or another device already finished).
+  if (completed && isMeaningfulOnboardingDraft(existing)) {
+    clearOnboardingDraft();
+    return "cleared_stale";
+  }
+
+  const merged = existing ? mergeOnboardingAnswers(existing, draft) : draft;
+  await persistOnboardingToFirestore(uid, merged);
+
+  try {
+    const { setStudentProfile } = await import("@/lib/firebase/firestore");
+    const gradYear = merged.expectedGraduationYear ?? merged.graduationYear ?? undefined;
+
+    await setStudentProfile(uid, {
+      ...(gradYear != null ? { graduationYear: Number(gradYear) } : {}),
+      ...(merged.gpa != null ? { gpa: Number(merged.gpa) } : {}),
+      ...(merged.satScore != null || merged.satTotal != null
+        ? { satScore: Number(merged.satTotal ?? merged.satScore) }
+        : {}),
+      ...(merged.actScore != null || merged.actComposite != null
+        ? { actScore: Number(merged.actComposite ?? merged.actScore) }
+        : {}),
+      ...(merged.preferredSize ? { preferredSize: merged.preferredSize } : {}),
+      ...(merged.preferredStates?.length
+        ? { preferredStates: merged.preferredStates }
+        : merged.locationPreferenceStates?.length
+          ? { preferredStates: merged.locationPreferenceStates }
+          : {}),
+    });
+  } catch (err) {
+    // onboardingAnswers already saved; profile fields can be repaired later.
+    console.error("[onboarding] student profile sync after draft persist failed", err);
+  }
+
+  clearOnboardingDraft();
+  return "synced";
+}

@@ -1,24 +1,42 @@
 import { NextRequest, NextResponse } from "next/server";
 import { z } from "zod";
 import { chatCompletion } from "@/lib/ai/openai";
+import { buildHeuristicEssayAnalysis } from "@/lib/ai/essayFallback";
 import { getApiErrorStatus } from "@/lib/errors/api";
 import { enforceUserRateLimit } from "@/lib/rateLimit/server";
 import { logApiError } from "@/lib/logging/api";
 import { getSessionUserFromRequest } from "@/lib/firebase/serverAuth";
-import { BillingError, enforceAndIncrementUsage } from "@/lib/billing/enforce";
+import { BillingError, releaseFeatureUsage, reserveFeatureUsage } from "@/lib/billing/enforce";
 
 const bodySchema = z.object({
   essay: z.string().min(50, "Essay should be at least 50 characters."),
 });
 
+function parseEssayJson(raw: string): unknown | null {
+  try {
+    const jsonStr = raw.replace(/^```json?\s*|\s*```$/g, "").trim();
+    const start = jsonStr.indexOf("{");
+    const end = jsonStr.lastIndexOf("}");
+    if (start === -1 || end === -1 || end <= start) return null;
+    return JSON.parse(jsonStr.slice(start, end + 1));
+  } catch {
+    return null;
+  }
+}
+
 export async function POST(req: NextRequest) {
+  let uid: string | null = null;
+  let reserved = false;
+
   try {
     const user = await getSessionUserFromRequest(req).catch(() => null);
     if (!user) {
       return NextResponse.json({ error: "Unauthorized" }, { status: 401 });
     }
+    uid = user.uid;
 
-    await enforceAndIncrementUsage(user.uid, "essayAnalyze");
+    await reserveFeatureUsage(user.uid, "essayAnalyze");
+    reserved = true;
 
     await enforceUserRateLimit({ userId: user.uid, bucket: "essay_analyze", windowMs: 60_000, maxRequests: 15 });
 
@@ -26,6 +44,8 @@ export async function POST(req: NextRequest) {
     const parsed = bodySchema.safeParse(json);
     if (!parsed.success) {
       const msg = parsed.error.errors.map((e) => e.message).join("; ") || "Invalid essay";
+      await releaseFeatureUsage(user.uid, "essayAnalyze");
+      reserved = false;
       return NextResponse.json({ error: msg }, { status: 400 });
     }
 
@@ -52,24 +72,29 @@ Include exactly these criteria in "criteria": Clarity, Structure, Voice, Impact,
 ESSAY:
 """${essay.slice(0, 15000)}"""`;
 
-    const message = await chatCompletion([{ role: "user", content: prompt }], {
-      temperature: 0.5,
-    });
-
-    const raw = message?.content?.trim() || "";
-    let result: unknown;
     try {
-      const jsonStr = raw.replace(/^```json?\s*|\s*```$/g, "").trim();
-      result = JSON.parse(jsonStr);
-    } catch {
-      return NextResponse.json(
-        { error: "Analysis response format was invalid. Please try again." },
-        { status: 502 }
-      );
-    }
+      const message = await chatCompletion([{ role: "user", content: prompt }], {
+        temperature: 0.5,
+        model: process.env.OPENAI_CHAT_MODEL,
+      });
 
-    return NextResponse.json(result);
+      const raw = message?.content?.trim() || "";
+      const result = parseEssayJson(raw);
+      if (result && typeof result === "object") {
+        return NextResponse.json(result);
+      }
+
+      console.warn("[essays.analyze] invalid AI JSON — using heuristic fallback");
+      return NextResponse.json(buildHeuristicEssayAnalysis(essay));
+    } catch (aiErr) {
+      logApiError("essays.analyze.ai", { userId: uid }, aiErr);
+      // Usable fallback so paying users are not left with a blank error after a failed model call.
+      return NextResponse.json(buildHeuristicEssayAnalysis(essay));
+    }
   } catch (err) {
+    if (reserved && uid) {
+      await releaseFeatureUsage(uid, "essayAnalyze");
+    }
     if (err instanceof BillingError) {
       return NextResponse.json({ error: err.message, code: err.code }, { status: err.status });
     }
@@ -81,16 +106,9 @@ ESSAY:
         { status: 429 }
       );
     }
-    if (status === 503) {
-      return NextResponse.json(
-        { error: "Essay analysis is temporarily unavailable. Please try again later." },
-        { status: 503 }
-      );
-    }
     return NextResponse.json(
       { error: err instanceof Error ? err.message : "Failed to analyze essay" },
       { status: 500 }
     );
   }
 }
-

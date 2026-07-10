@@ -5,10 +5,12 @@ import { generateRoadmap } from "@/lib/domain/roadmap";
 import { getApiErrorStatus } from "@/lib/errors/api";
 import { enforceUserRateLimit } from "@/lib/rateLimit/server";
 import { logApiError } from "@/lib/logging/api";
-import { BillingError, enforceAndIncrementUsage } from "@/lib/billing/enforce";
+import { BillingError, releaseFeatureUsage, reserveFeatureUsage } from "@/lib/billing/enforce";
 
 export async function POST(req: NextRequest) {
   let userId: string | null = null;
+  let reserved = false;
+
   try {
     const user = await getSessionUserFromRequest(req);
     if (!user) {
@@ -16,7 +18,8 @@ export async function POST(req: NextRequest) {
     }
     userId = user.uid;
 
-    await enforceAndIncrementUsage(user.uid, "roadmapGenerate");
+    await reserveFeatureUsage(user.uid, "roadmapGenerate");
+    reserved = true;
 
     await enforceUserRateLimit({
       userId: user.uid,
@@ -28,11 +31,26 @@ export async function POST(req: NextRequest) {
     const answers = await getOnboardingAnswersForServer(user.uid);
     const roadmap = await generateRoadmap(answers);
 
+    if (!roadmap?.phases?.length) {
+      await releaseFeatureUsage(user.uid, "roadmapGenerate");
+      reserved = false;
+      return NextResponse.json(
+        {
+          error: "Roadmap generation returned an empty plan. Please try again — your usage was not charged.",
+          code: "empty_roadmap",
+        },
+        { status: 502 }
+      );
+    }
+
     const roadmapId = `roadmap-${Date.now()}-${Math.random().toString(36).slice(2, 10)}`;
     await saveRoadmapForServer(user.uid, roadmapId, roadmap);
 
     return NextResponse.json({ roadmapId, roadmap });
   } catch (err) {
+    if (reserved && userId) {
+      await releaseFeatureUsage(userId, "roadmapGenerate");
+    }
     if (err instanceof BillingError) {
       return NextResponse.json({ error: err.message, code: err.code }, { status: err.status });
     }

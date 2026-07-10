@@ -2,6 +2,10 @@ import type { Metadata, Viewport } from "next";
 import "./globals.css";
 import { Providers } from "@/components/Providers";
 import { GoogleAnalytics } from "@/components/analytics/GoogleAnalytics";
+import {
+  GoogleTagManagerHeadScript,
+  GoogleTagManagerNoScript,
+} from "@/components/analytics/GoogleTagManager";
 import { APP_SHELL_LAYOUT_CSS } from "@/lib/appShellLayoutCss";
 
 const appOrigin =
@@ -15,6 +19,9 @@ export const metadata: Metadata = {
   icons: {
     icon: [{ url: "/icon.png", type: "image/png", sizes: "1024x1024" }],
     apple: "/icon.png",
+  },
+  verification: {
+    google: "WdBQJXv_JsaCFbvAmwiKcGhBwAwhQAguopMc3Hu0ka4",
   },
 };
 
@@ -46,8 +53,10 @@ export default function RootLayout({
           rel="stylesheet"
         />
         <link rel="stylesheet" href="/compiled-styles.css" />
+        <GoogleTagManagerHeadScript />
       </head>
       <body className="min-h-screen bg-[#F7F9FC] font-sans antialiased bg-pattern bg-glow" suppressHydrationWarning>
+        <GoogleTagManagerNoScript />
         {/* Body-level links: some CDN/streaming paths delay or omit <head>; HTML5 allows stylesheet links in body. */}
         <link rel="stylesheet" href="/app-shell-layout.css" precedence="default" />
         <link rel="stylesheet" href="/compiled-styles.css" precedence="default" />

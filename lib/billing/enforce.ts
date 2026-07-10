@@ -1,8 +1,18 @@
 import { adminDb } from "@/lib/firebase/admin";
 import type { BillingPlan } from "@/lib/billing/plans";
 import { PLAN_ENTITLEMENTS, type BillingFeature } from "@/lib/billing/entitlements";
+import { isPaidSubscriptionStatus } from "@/lib/billing/paidStatus";
 
-type SubscriptionStatus = "active" | "trialing" | "past_due" | "canceled" | "incomplete" | "incomplete_expired" | "unpaid" | "paused" | string;
+type SubscriptionStatus =
+  | "active"
+  | "trialing"
+  | "past_due"
+  | "canceled"
+  | "incomplete"
+  | "incomplete_expired"
+  | "unpaid"
+  | "paused"
+  | string;
 
 export class BillingError extends Error {
   status: number;
@@ -21,6 +31,13 @@ export function monthKeyUTC(d = new Date()): string {
   return `${y}-${m}`;
 }
 
+export type UsageSnapshot = {
+  plan: BillingPlan;
+  month: string;
+  used: number;
+  limit: number | null;
+};
+
 async function getPlanForUser(uid: string): Promise<{ plan: BillingPlan; status: SubscriptionStatus | null }> {
   const snap = await adminDb.collection("users").doc(uid).collection("billing").doc("subscription").get();
   if (!snap.exists) return { plan: "free", status: null };
@@ -29,12 +46,14 @@ async function getPlanForUser(uid: string): Promise<{ plan: BillingPlan; status:
   const rawPlan = (data?.plan ?? "free") as string;
   const plan: BillingPlan = rawPlan === "starter" || rawPlan === "growth" || rawPlan === "elite" ? rawPlan : "free";
 
-  // Only treat active/trialing as paid; everything else behaves like free.
-  const paid = status === "active" || status === "trialing";
+  // past_due keeps access while Stripe retries the card so users can open the portal and fix payment.
+  const paid = isPaidSubscriptionStatus(status);
   return { plan: paid ? plan : "free", status };
 }
 
-type UsageDoc = Partial<Record<"chatUsed" | "essayAnalyzeUsed" | "matchingRunUsed" | "roadmapGenerateUsed", number>> & {
+type UsageDoc = Partial<
+  Record<"chatUsed" | "essayAnalyzeUsed" | "matchingRunUsed" | "roadmapGenerateUsed", number>
+> & {
   month?: string;
   updatedAt?: string;
 };
@@ -54,35 +73,41 @@ function usageFieldForFeature(feature: BillingFeature): keyof UsageDoc | null {
   }
 }
 
+function usageRefFor(uid: string, month: string) {
+  return adminDb
+    .collection("users")
+    .doc(uid)
+    .collection("billing")
+    .doc("usage")
+    .collection("months")
+    .doc(month);
+}
+
 /**
- * Enforce plan + monthly usage limits and increment usage if allowed.
- *
- * - Reads plan from `users/{uid}/billing/subscription`
- * - Stores counters in `users/{uid}/billing/usage/{YYYY-MM}` (UTC month)
+ * Reserve one unit of monthly usage before expensive AI / Scorecard work.
+ * Call `releaseFeatureUsage` if the operation fails or returns an empty/unusable result.
  */
-export async function enforceAndIncrementUsage(uid: string, feature: BillingFeature): Promise<{ plan: BillingPlan; month: string; used: number; limit: number | null }> {
+export async function reserveFeatureUsage(uid: string, feature: BillingFeature): Promise<UsageSnapshot> {
   const { plan } = await getPlanForUser(uid);
   const ent = PLAN_ENTITLEMENTS[plan];
   if (!ent.enabled[feature]) {
     throw new BillingError("Upgrade required to use this feature.", { code: "upgrade_required" });
   }
 
-  const limit = (ent.monthlyLimits as any)[feature] as number | undefined;
-  if (!limit) {
-    return { plan, month: monthKeyUTC(), used: 0, limit: null };
-  }
-
+  const limit = (ent.monthlyLimits as Partial<Record<BillingFeature, number>>)[feature];
   const month = monthKeyUTC();
-  const usageRef = adminDb.collection("users").doc(uid).collection("billing").doc("usage").collection("months").doc(month);
-  // Using a subcollection keeps billing docs grouped but avoids hot-spotting a single doc.
+  if (limit == null) {
+    return { plan, month, used: 0, limit: null };
+  }
 
   const field = usageFieldForFeature(feature);
   if (!field) return { plan, month, used: 0, limit };
 
+  const usageRef = usageRefFor(uid, month);
   const result = await adminDb.runTransaction(async (tx) => {
     const snap = await tx.get(usageRef);
     const data = (snap.exists ? (snap.data() as UsageDoc) : {}) ?? {};
-    const used = Number((data as any)[field] ?? 0);
+    const used = Number(data[field] ?? 0);
     if (used >= limit) {
       throw new BillingError("Monthly limit reached. Upgrade or wait for renewal.", { code: "limit_reached" });
     }
@@ -102,3 +127,50 @@ export async function enforceAndIncrementUsage(uid: string, feature: BillingFeat
   return { plan, month, used: result.used, limit };
 }
 
+/**
+ * Refund a previously reserved usage unit after a failed or empty operation.
+ * No-op for unlimited plans. Never throws to callers (best-effort).
+ */
+export async function releaseFeatureUsage(uid: string, feature: BillingFeature): Promise<void> {
+  try {
+    const { plan } = await getPlanForUser(uid);
+    const ent = PLAN_ENTITLEMENTS[plan];
+    const limit = (ent.monthlyLimits as Partial<Record<BillingFeature, number>>)[feature];
+    if (limit == null) return;
+
+    const field = usageFieldForFeature(feature);
+    if (!field) return;
+
+    const month = monthKeyUTC();
+    const usageRef = usageRefFor(uid, month);
+
+    await adminDb.runTransaction(async (tx) => {
+      const snap = await tx.get(usageRef);
+      const data = (snap.exists ? (snap.data() as UsageDoc) : {}) ?? {};
+      const used = Number(data[field] ?? 0);
+      const next = Math.max(0, used - 1);
+      tx.set(
+        usageRef,
+        {
+          month,
+          [field]: next,
+          updatedAt: new Date().toISOString(),
+        },
+        { merge: true }
+      );
+    });
+  } catch (err) {
+    console.error("[billing.releaseFeatureUsage]", feature, err);
+  }
+}
+
+/**
+ * @deprecated Prefer `reserveFeatureUsage` + `releaseFeatureUsage` so failed AI work does not burn quota.
+ * Kept as an alias of reserve for any remaining call sites.
+ */
+export async function enforceAndIncrementUsage(
+  uid: string,
+  feature: BillingFeature
+): Promise<UsageSnapshot> {
+  return reserveFeatureUsage(uid, feature);
+}

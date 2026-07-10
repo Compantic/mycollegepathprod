@@ -51,7 +51,7 @@ export function LandingPricingSection({ showSectionId = false, className }: Prop
         <div className="mb-10 text-center">
           <h2 className="text-3xl font-semibold tracking-tight text-slate-900 sm:text-4xl">Investment in Your Future</h2>
           <p className="mx-auto mt-3 max-w-xl text-slate-600">
-            Traditional counseling can exceed $6,500. Choose what fits you.
+            Traditional counseling can exceed $6,500. Free includes one roadmap; paid plans start with a 7-day free trial.
           </p>
         </div>
         <div className="mb-12 flex flex-col items-center justify-center gap-4 sm:flex-row sm:flex-wrap">

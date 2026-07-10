@@ -49,7 +49,7 @@ export function LandingMarketingNav({ active }: Props) {
             href="/onboarding/step-1"
             className="whitespace-nowrap rounded-full bg-slate-900 px-2.5 py-1.5 text-xs font-semibold text-white transition hover:opacity-90 max-[420px]:px-2 max-[420px]:text-[11px] sm:px-4 sm:py-2 sm:text-sm"
           >
-            <span className="hidden sm:inline">Start Free Trial</span>
+            <span className="hidden sm:inline">Start Free Path</span>
             <span className="sm:hidden">Start Free</span>
           </Link>
         </div>

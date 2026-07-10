@@ -7,6 +7,7 @@ import {
 } from "@/lib/dashboard/getDashboardData";
 import { DashboardContent } from "@/components/dashboard/DashboardContent";
 import { getAiScoreLeaderboardForServer } from "@/lib/firebase/serverFirestore";
+import { buildStudentDeadlines, splitDeadlinesByTime } from "@/lib/deadlines/buildStudentDeadlines";
 
 function getAICoachTip(data: Awaited<ReturnType<typeof getDashboardUserData>>): string {
   if (!data) return "Complete your profile in Settings to get better college matches and personalized coach advice.";
@@ -34,6 +35,11 @@ export default async function DashboardPage() {
   const health = computeHealthMetrics(data);
   const aiTip = getAICoachTip(data);
   const aiLeaderboard = await getAiScoreLeaderboardForServer(12);
+  const deadlinesPayload = buildStudentDeadlines({
+    onboarding: data?.onboardingAnswers ?? null,
+    savedColleges: data?.savedColleges ?? [],
+  });
+  const { upcoming } = splitDeadlinesByTime(deadlinesPayload.items);
 
   return (
     <DashboardContent
@@ -42,6 +48,12 @@ export default async function DashboardPage() {
       health={health}
       aiTip={aiTip}
       aiLeaderboard={aiLeaderboard.map((x) => ({ uid: x.uid, displayName: x.displayName, score: x.score }))}
+      upcomingDeadlines={upcoming.slice(0, 3).map((d) => ({
+        id: d.id,
+        title: d.title,
+        dueDate: d.dueDate,
+        href: d.href ?? "/app/deadlines",
+      }))}
     />
   );
 }

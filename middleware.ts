@@ -1,5 +1,6 @@
 import { NextResponse } from "next/server";
 import type { NextRequest } from "next/server";
+import { SESSION_COOKIE_NAME } from "@/lib/auth/sessionCookie";
 
 const APP_PREFIX = "/app";
 const PUBLIC_EXACT_PATHS = new Set([
@@ -40,6 +41,10 @@ function attachCompiledStylesheet(res: NextResponse) {
   return res;
 }
 
+/**
+ * Edge-safe JWT shape + exp check for Firebase session cookies (and legacy ID tokens).
+ * Full cryptographic verification happens in API routes / server components via Admin SDK.
+ */
 function hasValidSessionShapeAndExpiry(token: string | undefined): boolean {
   if (!token) return false;
   const parts = token.split(".");
@@ -49,7 +54,8 @@ function hasValidSessionShapeAndExpiry(token: string | undefined): boolean {
   try {
     const payload = JSON.parse(payloadRaw) as { exp?: number };
     if (typeof payload.exp !== "number") return false;
-    return payload.exp * 1000 > Date.now();
+    // Small clock-skew allowance so near-expiry cookies are not cleared mid-navigation.
+    return payload.exp * 1000 > Date.now() - 30_000;
   } catch {
     return false;
   }
@@ -82,19 +88,15 @@ export function middleware(req: NextRequest) {
     return attachCompiledStylesheet(NextResponse.next());
   }
 
-  const token = req.cookies.get("__session")?.value;
+  const token = req.cookies.get(SESSION_COOKIE_NAME)?.value;
   const hasUsableToken = hasValidSessionShapeAndExpiry(token);
-  
-  if (process.env.NODE_ENV === "production" && isAppRoute(pathname)) {
-    console.log(`Middleware Auth Check: Path=${pathname}, TokenUsable=${hasUsableToken}`);
-  }
 
   if (isAppRoute(pathname) && !hasUsableToken) {
     const url = new URL("/signin", req.url);
     url.searchParams.set("from", pathname);
     if (token) {
       const res = NextResponse.redirect(url);
-      res.cookies.set("__session", "", { path: "/", maxAge: 0 });
+      res.cookies.set(SESSION_COOKIE_NAME, "", { path: "/", maxAge: 0 });
       return res;
     }
     return NextResponse.redirect(url);

@@ -47,6 +47,8 @@ interface AnalysisResult {
   overallScore?: number;
   reportSummary?: string;
   criteria?: { name: string; score: number; maxScore: number; description: string; improvementTip?: string }[];
+  /** True when the server returned a heuristic review because AI was unavailable. */
+  fallback?: boolean;
 }
 
 const FEEDBACK_VARIANT = {
@@ -513,6 +515,16 @@ export default function EssaysPage() {
                     <p className="text-xs text-slate-500">Scores and notes from your latest analysis</p>
                   </div>
                 </div>
+
+                {analysis.fallback ? (
+                  <div className="mb-6 rounded-xl border border-amber-200 bg-amber-50 px-4 py-3 text-sm text-amber-950">
+                    <p className="font-semibold">Preliminary review</p>
+                    <p className="mt-1 text-amber-900/90">
+                      The AI coach was temporarily unavailable, so this is a structural draft review. Re-run analysis
+                      shortly for full narrative feedback.
+                    </p>
+                  </div>
+                ) : null}
 
                 <div className="grid gap-6 sm:grid-cols-2 lg:grid-cols-3">
                   {analysis.overallScore != null && (

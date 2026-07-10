@@ -6,7 +6,7 @@ import { usePathname, useRouter } from "next/navigation";
 import { motion, useReducedMotion } from "framer-motion";
 import { signOut } from "@/lib/firebase/auth";
 import { auth } from "@/lib/firebase/client";
-import { setStudentProfile, getStudentProfile } from "@/lib/firebase/firestore";
+import { syncLocalOnboardingDraftToFirestore } from "@/lib/onboarding/storage";
 import { cn } from "@/lib/utils";
 import {
   LayoutDashboard,
@@ -24,12 +24,15 @@ import {
   ClipboardCheck,
   Sparkles,
   CreditCard,
+  CalendarClock,
 } from "lucide-react";
 import { LogoWordmark } from "@/components/landing/LogoWordmark";
+import { SessionKeepAlive } from "@/components/auth/SessionKeepAlive";
 
 const nav = [
   { href: "/app/dashboard", label: "Dashboard", icon: LayoutDashboard },
   { href: "/app/colleges", label: "College List", icon: Building2 },
+  { href: "/app/deadlines", label: "Deadlines", icon: CalendarClock },
   { href: "/app/chat", label: "Consultant Chat", icon: MessageSquare },
   { href: "/app/essays", label: "Essays", icon: Edit3 },
   { href: "/app/documents", label: "College Matching", icon: Target },
@@ -57,25 +60,12 @@ export function AppShell({ children }: { children: React.ReactNode }) {
 
   useEffect(() => {
     if (!isAppRoute) return;
-    const unsub = auth.onAuthStateChanged(async (user) => {
+    const unsub = auth.onAuthStateChanged((user) => {
       if (!user) return;
-      const raw = typeof localStorage !== "undefined" ? localStorage.getItem("onboardingAnswers") : null;
-      if (!raw) return;
-      try {
-        const data = JSON.parse(raw) as Record<string, unknown>;
-        const existing = await getStudentProfile(user.uid);
-        const updates: Parameters<typeof setStudentProfile>[1] = {};
-        if (data.graduationYear != null && existing?.graduationYear == null) updates.graduationYear = Number(data.graduationYear);
-        if (data.gpa != null && existing?.gpa == null) updates.gpa = Number(data.gpa);
-        if (data.satScore != null && existing?.satScore == null) updates.satScore = Number(data.satScore);
-        if (data.actScore != null && existing?.actScore == null) updates.actScore = Number(data.actScore);
-        if (data.preferredSize && existing?.preferredSize == null) updates.preferredSize = data.preferredSize as "small" | "medium" | "large";
-        if (Array.isArray(data.preferredStates) && data.preferredStates.length && !existing?.preferredStates?.length) updates.preferredStates = data.preferredStates as string[];
-        if (Object.keys(updates).length > 0) await setStudentProfile(user.uid, updates);
-        localStorage.removeItem("onboardingAnswers");
-      } catch {
-        // ignore
-      }
+      void syncLocalOnboardingDraftToFirestore(user.uid).catch((err) => {
+        // Keep localStorage intact on failure so the draft is not lost.
+        console.error("[AppShell] onboarding draft sync failed", err);
+      });
     });
     return () => unsub();
   }, [isAppRoute]);
@@ -93,6 +83,7 @@ export function AppShell({ children }: { children: React.ReactNode }) {
     pathname === "/app/myroad" ||
     pathname === "/app/dashboard" ||
     pathname === "/app/colleges" ||
+    pathname === "/app/deadlines" ||
     pathname === "/app/profile";
 
   if (!isAppRoute) {
@@ -115,6 +106,7 @@ export function AppShell({ children }: { children: React.ReactNode }) {
 
   return (
     <>
+      <SessionKeepAlive />
       {sidebarOpen ? (
         <div
           className="app-shell-backdrop fixed inset-0 z-[60] bg-slate-900/40 backdrop-blur-sm"

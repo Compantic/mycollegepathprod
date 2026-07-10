@@ -84,6 +84,7 @@ export default function OnboardingStep7Page() {
       preferredStates: draft.preferredStates?.length ? draft.preferredStates : undefined,
       profilePhotoUrl,
     });
+    // Only clear after both Firestore writes succeed.
     clearOnboardingDraft();
   }
 

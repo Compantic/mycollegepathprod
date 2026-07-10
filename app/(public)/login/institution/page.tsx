@@ -1,5 +1,5 @@
-import { redirect } from "next/navigation";
+import { PartnerLoginUnavailable } from "@/components/auth/PartnerLoginUnavailable";
 
 export default function InstitutionLoginPage() {
-  redirect("/signin");
+  return <PartnerLoginUnavailable kind="institution" />;
 }
