@@ -43,6 +43,7 @@ export default function RootLayout({
   return (
     <html lang="en" suppressHydrationWarning>
       <head>
+        <GoogleTagManagerHeadScript />
         <style id="app-shell-layout-critical" dangerouslySetInnerHTML={{ __html: APP_SHELL_LAYOUT_CSS }} />
         <link rel="stylesheet" href="/app-shell-layout.css" />
         <link rel="preconnect" href="https://fonts.googleapis.com" />
@@ -53,7 +54,6 @@ export default function RootLayout({
           rel="stylesheet"
         />
         <link rel="stylesheet" href="/compiled-styles.css" />
-        <GoogleTagManagerHeadScript />
       </head>
       <body className="min-h-screen bg-[#F7F9FC] font-sans antialiased bg-pattern bg-glow" suppressHydrationWarning>
         <GoogleTagManagerNoScript />
